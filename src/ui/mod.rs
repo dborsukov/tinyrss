@@ -1,7 +1,7 @@
 use crate::worker::{ToApp, ToWorker, Worker, WorkerError};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
-use egui::{CentralPanel, Context, TopBottomPanel};
+use egui::{Align, CentralPanel, Context, Frame, Label, Layout, Margin, TopBottomPanel};
 use tracing::error;
 
 #[derive(Default, PartialEq)]
@@ -61,6 +61,10 @@ impl eframe::App for TinyrssApp {
                     ToApp::UpdateFeed { entries } => {
                         self.worker_status.updating_feed = false;
                         self.feed_entries = entries;
+                        self.worker_status.worker_errors.push(WorkerError {
+                            description: "Test".into(),
+                            error_message: "Test".into(),
+                        })
                     }
                     ToApp::WorkerError { error } => {
                         error!(
@@ -76,6 +80,8 @@ impl eframe::App for TinyrssApp {
         self.render_header(ctx);
 
         self.render_central_panel(ctx);
+
+        self.render_footer(ctx);
     }
 }
 
@@ -124,5 +130,40 @@ impl TinyrssApp {
 
     fn render_settings_page(&mut self, ui: &mut egui::Ui) {
         ui.heading("Settings page");
+    }
+
+    fn render_footer(&mut self, ctx: &Context) {
+        if self.worker_status.worker_errors.len() > 0 {
+            TopBottomPanel::bottom("footer").show(ctx, |ui| {
+                self.worker_status.worker_errors.retain(|error| {
+                    let mut retain = true;
+
+                    Frame {
+                        fill: egui::Color32::from_rgb(200, 0, 0),
+                        inner_margin: Margin::same(4.0),
+                        rounding: egui::Rounding::same(4.0),
+                        ..Default::default()
+                    }
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                Label::new(format!(
+                                    "{}: {}",
+                                    error.description, error.error_message
+                                ))
+                                .wrap(true),
+                            );
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                if ui.button("Close").clicked() {
+                                    retain = false;
+                                }
+                            });
+                        });
+                    });
+
+                    retain
+                });
+            });
+        }
     }
 }
