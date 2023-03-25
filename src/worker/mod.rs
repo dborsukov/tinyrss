@@ -1,13 +1,10 @@
 use crossbeam_channel::{Receiver, Sender};
+pub use messages::{ToApp, ToWorker, WorkerError};
 use tracing::info;
 
-pub enum ToApp {}
-
-pub enum ToWorker {
-    Startup,
-}
-
-pub struct WorkerError {}
+mod db;
+mod messages;
+mod utils;
 
 pub struct Worker {
     sender: Sender<ToApp>,
@@ -39,14 +36,57 @@ impl Worker {
                     Ok(message) => {
                         match message {
                             ToWorker::Startup => {
-                                info!("Received startup message!");
+                                self.initialize_app_fs();
+
+                                self.initialize_database().await;
+                            }
+                            ToWorker::UpdateFeed => {
+                                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                                self.sender
+                                    .send(ToApp::UpdateFeed { entries: vec![] })
+                                    .unwrap();
                             }
                         }
                         self.egui_ctx.request_repaint();
                     }
-                    Err(_) => break,
+                    Err(_) => {
+                        todo!("Implement graceful shutdown")
+                    }
                 }
             }
         });
+    }
+
+    fn initialize_app_fs(&mut self) {
+        let app_dir = utils::get_app_dir();
+        let db_path = app_dir.join("tinyrss.db");
+
+        if let Err(err) = std::fs::create_dir_all(utils::get_app_dir()) {
+            self.report_error("Failed to initialize app filesystem", err.to_string());
+        } else {
+            info!("Initialized application filesystem.");
+        };
+
+        if !db_path.exists() {
+            if let Err(err) = std::fs::File::create(db_path) {
+                self.report_error("Failed to create database", err.to_string());
+            };
+        }
+    }
+
+    async fn initialize_database(&mut self) {
+        if let Err(err) = db::create_tables().await {
+            self.report_error("Failed to initialize database", err.to_string());
+        } else {
+            info!("Initialized database.");
+        };
+    }
+
+    fn report_error(&mut self, description: impl Into<String>, message: impl Into<String>) {
+        self.sender
+            .send(ToApp::WorkerError {
+                error: WorkerError::new(description, message),
+            })
+            .unwrap();
     }
 }
