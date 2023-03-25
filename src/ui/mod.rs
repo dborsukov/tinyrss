@@ -1,24 +1,24 @@
 use crate::worker::{ToApp, ToWorker, Worker, WorkerError};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
-use egui::{CentralPanel, Context};
+use egui::{CentralPanel, Context, TopBottomPanel};
+use tracing::error;
 
-#[derive(PartialEq)]
+#[derive(Default, PartialEq)]
 enum Page {
+    #[default]
     Feed,
     Channels,
     Settings,
 }
 
-impl Default for Page {
-    fn default() -> Self {
-        Page::Feed
-    }
-}
-
 #[derive(Default)]
 pub struct TinyrssApp {
     page: Page,
+
+    channels: Vec<i32>,
+    feed_entries: Vec<i32>,
+
     worker_status: WorkerStatus,
     sender: Option<Sender<ToWorker>>,
     receiver: Option<Receiver<ToApp>>,
@@ -57,39 +57,65 @@ impl eframe::App for TinyrssApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         if let Some(receiver) = &self.receiver {
             if let Ok(message) = receiver.try_recv() {
-                // TODO: handle messages from worker and update app state
+                match message {
+                    ToApp::UpdateFeed { entries } => {
+                        self.worker_status.updating_feed = false;
+                        self.feed_entries = entries;
+                    }
+                    ToApp::WorkerError { error } => {
+                        error!(
+                            "Received error from worker: {} {}",
+                            error.description, error.error_message
+                        );
+                        self.worker_status.worker_errors.push(error);
+                    }
+                }
             }
         }
+
+        self.render_header(ctx);
 
         self.render_central_panel(ctx);
     }
 }
 
 impl TinyrssApp {
-    fn render_central_panel(&mut self, ctx: &Context) -> egui::InnerResponse<()> {
-        CentralPanel::default().show(ctx, |ui| {
+    fn render_header(&mut self, ctx: &Context) {
+        TopBottomPanel::top("header").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.page, Page::Feed, "Feed");
                 ui.selectable_value(&mut self.page, Page::Channels, "Channels");
                 ui.selectable_value(&mut self.page, Page::Settings, "Settings");
-            });
-            ui.separator();
-            match self.page {
-                Page::Feed => {
-                    self.render_feed_page(ui);
-                }
-                Page::Channels => {
-                    self.render_channels_page(ui);
-                }
-                Page::Settings => {
-                    self.render_settings_page(ui);
-                }
+            })
+        });
+    }
+
+    fn render_central_panel(&mut self, ctx: &Context) {
+        CentralPanel::default().show(ctx, |ui| match self.page {
+            Page::Feed => {
+                self.render_feed_page(ui);
             }
-        })
+            Page::Channels => {
+                self.render_channels_page(ui);
+            }
+            Page::Settings => {
+                self.render_settings_page(ui);
+            }
+        });
     }
 
     fn render_feed_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Feed page");
+        if self.worker_status.updating_feed {
+            ui.spinner();
+        } else {
+            ui.heading("Feed page");
+            if ui.button("Update feed").clicked() {
+                if let Some(sender) = &self.sender {
+                    self.worker_status.updating_feed = true;
+                    sender.send(ToWorker::UpdateFeed).unwrap();
+                }
+            }
+        }
     }
 
     fn render_channels_page(&mut self, ui: &mut egui::Ui) {
