@@ -11,7 +11,6 @@ fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         centered: true,
         resizable: false,
-        decorated: false,
         always_on_top: true,
         initial_window_size: Some(egui::vec2(500.0, 500.0)),
         ..eframe::NativeOptions::default()
