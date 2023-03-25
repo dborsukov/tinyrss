@@ -1,10 +1,13 @@
 use crossbeam_channel::{Receiver, Sender};
 pub use messages::{ToApp, ToWorker, WorkerError};
-use tracing::info;
+use parking_lot::Once;
+use tracing::{error, info};
 
 mod db;
 mod messages;
 mod utils;
+
+static CHANNEL_CLOSED: Once = Once::new();
 
 pub struct Worker {
     sender: Sender<ToApp>,
@@ -49,8 +52,10 @@ impl Worker {
                         }
                         self.egui_ctx.request_repaint();
                     }
-                    Err(_) => {
-                        todo!("Implement graceful shutdown")
+                    Err(err) => {
+                        CHANNEL_CLOSED.call_once(|| {
+                            error!("Failed to process message from app: {}", err);
+                        });
                     }
                 }
             }
