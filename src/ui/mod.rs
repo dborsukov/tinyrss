@@ -286,7 +286,12 @@ impl TinyrssApp {
             } else {
                 ScrollArea::vertical().show(ui, |ui| {
                     for channel in &self.channels {
-                        widgets::channel_card(ui, channel, &self.channel_input);
+                        widgets::channel_card(
+                            ui,
+                            self.sender.clone(),
+                            channel,
+                            &self.channel_input,
+                        );
                     }
                 });
             }

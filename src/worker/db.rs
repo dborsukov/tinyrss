@@ -140,3 +140,14 @@ pub async fn dismiss_all() -> Result<()> {
 
     Ok(())
 }
+
+pub async fn unsubscribe(id: &str) -> Result<()> {
+    let mut conn = establish_connection().await?;
+
+    query("DELETE FROM channels WHERE id = ?")
+        .bind(id)
+        .execute(&mut conn)
+        .await?;
+
+    Ok(())
+}

@@ -70,6 +70,13 @@ impl Worker {
 
                                 self.update_feed().await;
                             }
+                            ToWorker::Unsubscribe { id } => {
+                                self.unsubscribe(&id).await;
+
+                                self.update_channel_list().await;
+
+                                self.update_feed().await;
+                            }
                         }
                         self.egui_ctx.request_repaint();
                     }
@@ -268,6 +275,12 @@ impl Worker {
     async fn dismiss_all(&mut self) {
         if let Err(err) = db::dismiss_all().await {
             self.report_error("Falied to dismiss all", err.to_string());
+        }
+    }
+
+    async fn unsubscribe(&mut self, id: &str) {
+        if let Err(err) = db::unsubscribe(id).await {
+            self.report_error("Falied to unsubscribe", err.to_string());
         }
     }
 

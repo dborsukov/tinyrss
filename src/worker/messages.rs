@@ -12,6 +12,7 @@ pub enum ToWorker {
     AddChannel { link: String },
     SetDismissed { id: String, dismissed: bool },
     DismissAll,
+    Unsubscribe { id: String },
 }
 
 pub struct WorkerError {

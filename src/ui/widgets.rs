@@ -2,7 +2,7 @@ use crate::worker::{Channel, Item, ToWorker};
 use chrono::{Duration, Local, TimeZone, Utc};
 use crossbeam_channel::Sender;
 use eframe::epaint::text::{LayoutJob, TextWrapping};
-use egui::{Align, Frame, Hyperlink, Label, Layout, RichText, TextFormat};
+use egui::{Align, CollapsingHeader, Frame, Hyperlink, Label, Layout, RichText, TextFormat};
 use unicode_truncate::UnicodeTruncateStr;
 
 pub fn truncate(string: &str, width: usize, trim_char: Option<&str>) -> String {
@@ -51,7 +51,12 @@ pub fn timestamp_to_human_readable(timestamp: i64) -> String {
     }
 }
 
-pub fn channel_card(ui: &mut egui::Ui, channel: &Channel, search: &str) {
+pub fn channel_card(
+    ui: &mut egui::Ui,
+    sender: Option<Sender<ToWorker>>,
+    channel: &Channel,
+    search: &str,
+) {
     let mut show = true;
     if let Some(title) = &channel.title {
         if !title.to_lowercase().contains(&search.to_lowercase()) && !search.is_empty() {
@@ -67,7 +72,30 @@ pub fn channel_card(ui: &mut egui::Ui, channel: &Channel, search: &str) {
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             if let Some(title) = &channel.title {
-                ui.label(RichText::new(title).strong().heading());
+                CollapsingHeader::new(RichText::new(truncate(title, 55, None)).strong().heading())
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        if let Some(description) = &channel.description {
+                            ui.horizontal(|ui| {
+                                ui.label("Description:");
+                                ui.add(Label::new(description).wrap(true));
+                            });
+                        } else {
+                            ui.horizontal(|ui| {
+                                ui.label("Description:");
+                                ui.label("none");
+                            });
+                        }
+                        if ui.button("Unsubscribe").clicked() {
+                            if let Some(sender) = sender {
+                                sender
+                                    .send(ToWorker::Unsubscribe {
+                                        id: channel.id.clone(),
+                                    })
+                                    .unwrap();
+                            }
+                        }
+                    });
             } else {
                 ui.label(RichText::new("<no title>").strong().heading());
             }
