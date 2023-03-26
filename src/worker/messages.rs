@@ -8,11 +8,8 @@ pub enum ToApp {
 
 pub enum ToWorker {
     Startup,
-    #[allow(dead_code)]
     UpdateFeed,
-    AddChannel {
-        link: String,
-    },
+    AddChannel { link: String },
 }
 
 pub struct WorkerError {

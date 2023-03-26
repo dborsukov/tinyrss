@@ -100,7 +100,17 @@ impl TinyrssApp {
                 ui.selectable_value(&mut self.page, Page::Feed, "Feed");
                 ui.selectable_value(&mut self.page, Page::Channels, "Channels");
                 ui.selectable_value(&mut self.page, Page::Settings, "Settings");
-            })
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if self.page == Page::Feed {
+                        if ui
+                            .add_enabled(!self.worker_status.updating_feed, Button::new("⟳"))
+                            .clicked()
+                        {
+                            self.update_feed();
+                        }
+                    }
+                });
+            });
         });
     }
 
@@ -252,6 +262,13 @@ impl TinyrssApp {
             sender
                 .send(ToWorker::AddChannel { link: link.into() })
                 .unwrap();
+        }
+    }
+
+    fn update_feed(&mut self) {
+        self.worker_status.updating_feed = true;
+        if let Some(sender) = &self.sender {
+            sender.send(ToWorker::UpdateFeed).unwrap();
         }
     }
 }
