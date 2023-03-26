@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 crossbeam-channel = "0.5.7"
+chrono = "0.4.24"
 dirs = "5.0"
 eframe = "0.21.0"
 egui = "0.21.0"
@@ -15,3 +16,4 @@ sqlx = { version = "0.6.3", features = ["runtime-tokio-native-tls", "sqlite", "m
 tokio = { version = "1.17.0", features = ["rt", "rt-multi-thread"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+unicode-truncate = "0.2.0"

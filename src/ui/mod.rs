@@ -2,10 +2,12 @@ use crate::worker::{Channel, Item, ToApp, ToWorker, Worker, WorkerError};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
 use egui::{
-    Align, Button, CentralPanel, Context, Frame, Label, Layout, Margin, ScrollArea, TextEdit,
-    TopBottomPanel,
+    Align, Button, CentralPanel, Context, Direction, Frame, Label, Layout, Margin, ScrollArea,
+    TextEdit, TopBottomPanel,
 };
 use tracing::error;
+
+mod widgets;
 
 #[derive(Default, PartialEq)]
 enum Page {
@@ -18,6 +20,7 @@ enum Page {
 #[derive(Default)]
 pub struct TinyrssApp {
     page: Page,
+    feed_page: usize,
     channel_input: String,
 
     channels: Vec<Channel>,
@@ -117,23 +120,46 @@ impl TinyrssApp {
 
     fn render_feed_page(&mut self, ui: &mut egui::Ui) {
         if self.worker_status.updating_feed {
-            ui.spinner();
+            ui.with_layout(
+                Layout::centered_and_justified(Direction::LeftToRight),
+                |ui| {
+                    ui.spinner();
+                },
+            );
         } else {
+            const ITEMS_PER_PAGE: usize = 15;
+
+            let last_page =
+                (self.feed_items.len() - (self.feed_page * ITEMS_PER_PAGE)) < ITEMS_PER_PAGE;
+
+            let from = self.feed_page * ITEMS_PER_PAGE;
+            let to;
+
+            if from + ITEMS_PER_PAGE > self.feed_items.len() {
+                to = self.feed_items.len();
+            } else {
+                to = from + ITEMS_PER_PAGE;
+            }
+
             ScrollArea::vertical().show(ui, |ui| {
-                for item in &self.feed_items {
-                    if let Some(title) = &item.title {
-                        ui.heading(title);
-                    } else {
-                        ui.heading("<no title>");
-                    }
-                    ui.horizontal(|ui| {
-                        if let Some(channel_title) = &item.channel_title {
-                            ui.label(channel_title);
-                        }
-                        ui.label(" * ");
-                        ui.label(item.published.to_string());
-                    });
+                for item in &self.feed_items[from..to] {
+                    widgets::feed_card(ui, item);
                 }
+            });
+
+            ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_enabled(self.feed_page > 0, Button::new("<"))
+                        .clicked()
+                    {
+                        self.feed_page -= 1;
+                    }
+                    ui.label((self.feed_page + 1).to_string());
+                    if ui.add_enabled(!last_page, Button::new(">")).clicked() {
+                        self.feed_page += 1;
+                    }
+                });
             });
         }
     }
@@ -153,16 +179,7 @@ impl TinyrssApp {
         });
         ScrollArea::vertical().show(ui, |ui| {
             for channel in &self.channels {
-                if let Some(title) = &channel.title {
-                    ui.heading(title);
-                } else {
-                    ui.heading("<no title>");
-                }
-                if let Some(description) = &channel.description {
-                    ui.heading(description);
-                } else {
-                    ui.heading("<no description>");
-                }
+                widgets::channel_card(ui, channel);
             }
         });
     }

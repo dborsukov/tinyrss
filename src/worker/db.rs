@@ -108,7 +108,7 @@ pub async fn get_all_items() -> Result<Vec<Item>> {
     let mut conn = establish_connection().await?;
 
     let items = query_as::<_, Item>(
-        "SELECT id, link, title, summary, published, channel_title, channel FROM items",
+        "SELECT id, link, title, summary, published, channel_title, channel FROM items ORDER BY published DESC",
     )
     .fetch_all(&mut conn)
     .await?;
