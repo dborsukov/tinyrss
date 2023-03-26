@@ -10,6 +10,8 @@ pub enum ToWorker {
     Startup,
     UpdateFeed,
     AddChannel { link: String },
+    SetDismissed { id: String, dismissed: bool },
+    DismissAll,
 }
 
 pub struct WorkerError {

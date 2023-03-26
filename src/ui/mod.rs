@@ -2,8 +2,8 @@ use crate::worker::{Channel, Item, ToApp, ToWorker, Worker, WorkerError};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
 use egui::{
-    Align, Button, CentralPanel, Context, Direction, Frame, Label, Layout, Margin, ScrollArea,
-    TextEdit, TopBottomPanel,
+    Align, Button, CentralPanel, ComboBox, Context, Direction, Frame, Label, Layout, Margin,
+    ScrollArea, TextEdit, TopBottomPanel,
 };
 use tracing::error;
 
@@ -17,11 +17,19 @@ enum Page {
     Settings,
 }
 
+#[derive(Default, PartialEq)]
+enum FeedTypeCombo {
+    #[default]
+    New,
+    Dismissed,
+}
+
 #[derive(Default)]
 pub struct TinyrssApp {
     page: Page,
     feed_page: usize,
     channel_input: String,
+    feed_type_combo: FeedTypeCombo,
 
     channels: Vec<Channel>,
     feed_items: Vec<Item>,
@@ -107,7 +115,24 @@ impl TinyrssApp {
                             .clicked()
                         {
                             self.update_feed();
-                        }
+                        };
+                        ComboBox::from_id_source("feed_type_combo")
+                            .selected_text(match self.feed_type_combo {
+                                FeedTypeCombo::New => "New",
+                                FeedTypeCombo::Dismissed => "Dismissed",
+                            })
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.feed_type_combo,
+                                    FeedTypeCombo::New,
+                                    "New",
+                                );
+                                ui.selectable_value(
+                                    &mut self.feed_type_combo,
+                                    FeedTypeCombo::Dismissed,
+                                    "Dismissed",
+                                );
+                            });
                     }
                 });
             });
@@ -137,25 +162,70 @@ impl TinyrssApp {
                 },
             );
         } else {
-            const ITEMS_PER_PAGE: usize = 15;
+            if self.feed_items.is_empty() {
+                ui.with_layout(
+                    Layout::centered_and_justified(Direction::LeftToRight),
+                    |ui| {
+                        ui.label("No items in feed");
+                    },
+                );
+                return;
+            }
 
-            let last_page =
-                (self.feed_items.len() - (self.feed_page * ITEMS_PER_PAGE)) < ITEMS_PER_PAGE;
+            const ITEMS_PER_PAGE: usize = 15;
 
             let from = self.feed_page * ITEMS_PER_PAGE;
             let to;
+            let last_page: bool;
 
-            if from + ITEMS_PER_PAGE > self.feed_items.len() {
-                to = self.feed_items.len();
+            let filtered_items: Vec<&Item>;
+
+            match self.feed_type_combo {
+                FeedTypeCombo::New => {
+                    filtered_items = self
+                        .feed_items
+                        .iter()
+                        .filter(|item| !item.dismissed)
+                        .collect();
+                }
+                FeedTypeCombo::Dismissed => {
+                    filtered_items = self
+                        .feed_items
+                        .iter()
+                        .filter(|item| item.dismissed)
+                        .collect();
+                }
+            }
+
+            last_page =
+                (filtered_items.len() - (self.feed_page * ITEMS_PER_PAGE)) <= ITEMS_PER_PAGE;
+
+            if from + ITEMS_PER_PAGE > filtered_items.len() {
+                to = filtered_items.len();
             } else {
                 to = from + ITEMS_PER_PAGE;
             }
 
-            ScrollArea::vertical().show(ui, |ui| {
-                for item in &self.feed_items[from..to] {
-                    widgets::feed_card(ui, item);
+            if filtered_items.is_empty() {
+                let text;
+                match self.feed_type_combo {
+                    FeedTypeCombo::New => text = "No new items",
+                    FeedTypeCombo::Dismissed => text = "No dismissed items",
                 }
-            });
+                ui.with_layout(
+                    Layout::centered_and_justified(Direction::LeftToRight),
+                    |ui| {
+                        ui.label(text);
+                    },
+                );
+                return;
+            } else {
+                ScrollArea::vertical().show(ui, |ui| {
+                    for item in &filtered_items[from..to] {
+                        widgets::feed_card(ui, self.sender.clone(), item);
+                    }
+                });
+            }
 
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 ui.horizontal(|ui| {
@@ -170,6 +240,13 @@ impl TinyrssApp {
                         self.feed_page += 1;
                     }
                 });
+                if self.feed_type_combo == FeedTypeCombo::New {
+                    ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
+                        if ui.link("Dismiss all").clicked() {
+                            self.dismiss_all();
+                        }
+                    });
+                }
             });
         }
     }
@@ -269,6 +346,12 @@ impl TinyrssApp {
         self.worker_status.updating_feed = true;
         if let Some(sender) = &self.sender {
             sender.send(ToWorker::UpdateFeed).unwrap();
+        }
+    }
+
+    fn dismiss_all(&mut self) {
+        if let Some(sender) = &self.sender {
+            sender.send(ToWorker::DismissAll).unwrap();
         }
     }
 }

@@ -60,6 +60,16 @@ impl Worker {
 
                                 self.update_channel_list().await;
                             }
+                            ToWorker::SetDismissed { id, dismissed } => {
+                                self.set_dismissed(&id, dismissed).await;
+
+                                self.update_feed().await;
+                            }
+                            ToWorker::DismissAll => {
+                                self.dismiss_all().await;
+
+                                self.update_feed().await;
+                            }
                         }
                         self.egui_ctx.request_repaint();
                     }
@@ -198,6 +208,7 @@ impl Worker {
                     id: entry.id,
                     channel_title: channel.title.clone(),
                     channel: channel.id.clone(),
+                    dismissed: false,
                     ..Default::default()
                 };
 
@@ -246,6 +257,18 @@ impl Worker {
         };
 
         self.sender.send(ToApp::UpdateFeed { items }).unwrap();
+    }
+
+    async fn set_dismissed(&mut self, id: &str, dismissed: bool) {
+        if let Err(err) = db::set_dismissed(id, dismissed).await {
+            self.report_error("Falied to set dismissed", err.to_string());
+        }
+    }
+
+    async fn dismiss_all(&mut self) {
+        if let Err(err) = db::dismiss_all().await {
+            self.report_error("Falied to dismiss all", err.to_string());
+        }
     }
 
     fn report_error(&mut self, description: impl Into<String>, message: impl Into<String>) {

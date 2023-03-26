@@ -1,7 +1,8 @@
-use crate::worker::{Channel, Item};
+use crate::worker::{Channel, Item, ToWorker};
 use chrono::{Duration, Local, TimeZone, Utc};
+use crossbeam_channel::Sender;
 use eframe::epaint::text::{LayoutJob, TextWrapping};
-use egui::{Frame, Hyperlink, Label, RichText, TextFormat};
+use egui::{Align, Frame, Hyperlink, Label, Layout, RichText, TextFormat};
 use unicode_truncate::UnicodeTruncateStr;
 
 pub fn truncate(string: &str, width: usize, trim_char: Option<&str>) -> String {
@@ -74,7 +75,7 @@ pub fn channel_card(ui: &mut egui::Ui, channel: &Channel, search: &str) {
     }
 }
 
-pub fn feed_card(ui: &mut egui::Ui, item: &Item) {
+pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Item) {
     Frame {
         fill: egui::Color32::from_rgb(0, 50, 0),
         inner_margin: egui::Margin::same(4.0),
@@ -100,6 +101,31 @@ pub fn feed_card(ui: &mut egui::Ui, item: &Item) {
             if let Some(channel_title) = &item.channel_title {
                 ui.label(truncate(channel_title, 25, None));
             }
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if item.dismissed {
+                    if ui.link("Restore").clicked() {
+                        if let Some(sender) = sender {
+                            sender
+                                .send(ToWorker::SetDismissed {
+                                    id: item.id.clone(),
+                                    dismissed: false,
+                                })
+                                .unwrap();
+                        }
+                    }
+                } else {
+                    if ui.link("Dismiss").clicked() {
+                        if let Some(sender) = sender {
+                            sender
+                                .send(ToWorker::SetDismissed {
+                                    id: item.id.clone(),
+                                    dismissed: true,
+                                })
+                                .unwrap();
+                        }
+                    }
+                }
+            });
         });
     });
 }
