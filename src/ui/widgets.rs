@@ -1,5 +1,5 @@
 use crate::worker::{Channel, Item};
-use chrono::{TimeZone, Utc};
+use chrono::{Duration, Local, TimeZone, Utc};
 use eframe::epaint::text::{LayoutJob, TextWrapping};
 use egui::{Frame, Hyperlink, Label, RichText, TextFormat};
 use unicode_truncate::UnicodeTruncateStr;
@@ -19,9 +19,35 @@ pub fn timestamp_to_human_readable(timestamp: i64) -> String {
         None => return String::from("???"),
     };
 
-    let formatted = dt.format("%d %b %Y");
+    let duration = Duration::seconds(Local::now().timestamp() - timestamp);
 
-    formatted.to_string()
+    if duration.num_minutes() < 60 {
+        if duration.num_minutes() == 1 {
+            "1 minute ago".to_string()
+        } else {
+            format!("{} minutes ago", duration.num_minutes())
+        }
+    } else if duration.num_hours() < 24 {
+        if duration.num_hours() == 1 {
+            "1 hour ago".to_string()
+        } else {
+            format!("{} hours ago", duration.num_hours())
+        }
+    } else if duration.num_days() < 7 {
+        if duration.num_days() == 1 {
+            "1 day ago".to_string()
+        } else {
+            format!("{} days ago", duration.num_days())
+        }
+    } else if duration.num_weeks() < 4 {
+        if duration.num_weeks() == 1 {
+            "1 week ago".to_string()
+        } else {
+            format!("{} weeks ago", duration.num_weeks())
+        }
+    } else {
+        dt.format("%d %b %Y").to_string()
+    }
 }
 
 pub fn channel_card(ui: &mut egui::Ui, channel: &Channel, search: &str) {
