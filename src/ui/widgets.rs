@@ -24,20 +24,28 @@ pub fn timestamp_to_human_readable(timestamp: i64) -> String {
     formatted.to_string()
 }
 
-pub fn channel_card(ui: &mut egui::Ui, channel: &Channel) {
-    Frame {
-        fill: egui::Color32::from_rgb(0, 50, 0),
-        inner_margin: egui::Margin::same(4.0),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
-        ui.set_width(ui.available_width());
-        if let Some(title) = &channel.title {
-            ui.label(RichText::new(title).strong().heading());
-        } else {
-            ui.label(RichText::new("<no title>").strong().heading());
+pub fn channel_card(ui: &mut egui::Ui, channel: &Channel, search: &str) {
+    let mut show = true;
+    if let Some(title) = &channel.title {
+        if !title.to_lowercase().contains(&search.to_lowercase()) && !search.is_empty() {
+            show = false;
         }
-    });
+    }
+    if show {
+        Frame {
+            fill: egui::Color32::from_rgb(0, 50, 0),
+            inner_margin: egui::Margin::same(4.0),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            if let Some(title) = &channel.title {
+                ui.label(RichText::new(title).strong().heading());
+            } else {
+                ui.label(RichText::new("<no title>").strong().heading());
+            }
+        });
+    }
 }
 
 pub fn feed_card(ui: &mut egui::Ui, item: &Item) {

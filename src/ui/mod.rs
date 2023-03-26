@@ -177,11 +177,33 @@ impl TinyrssApp {
                 self.channel_input = "".to_string();
             };
         });
-        ScrollArea::vertical().show(ui, |ui| {
-            for channel in &self.channels {
-                widgets::channel_card(ui, channel);
+
+        if self.channels.is_empty() {
+            ui.centered_and_justified(|ui| {
+                ui.label("You are not subscribed to any channels");
+            });
+        } else {
+            let search_result_exists = self.channels.iter().any(|channel| {
+                if let Some(title) = &channel.title {
+                    return title
+                        .to_lowercase()
+                        .contains(self.channel_input.to_lowercase().as_str());
+                }
+                return false;
+            });
+
+            if !search_result_exists && !self.channels.is_empty() {
+                ui.centered_and_justified(|ui| {
+                    ui.label("No channels matched your search");
+                });
+            } else {
+                ScrollArea::vertical().show(ui, |ui| {
+                    for channel in &self.channels {
+                        widgets::channel_card(ui, channel, &self.channel_input);
+                    }
+                });
             }
-        });
+        }
     }
 
     fn render_settings_page(&mut self, ui: &mut egui::Ui) {
