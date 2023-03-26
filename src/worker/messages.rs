@@ -1,11 +1,15 @@
+use crate::worker::db;
+
 pub enum ToApp {
     WorkerError { error: WorkerError },
-    UpdateFeed { entries: Vec<i32> },
+    UpdateFeed { entries: Vec<db::Item> },
+    UpdateChannels { channels: Vec<db::Channel> },
 }
 
 pub enum ToWorker {
     Startup,
     UpdateFeed,
+    AddChannel { link: String },
 }
 
 pub struct WorkerError {

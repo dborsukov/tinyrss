@@ -1,4 +1,5 @@
 use crossbeam_channel::{Receiver, Sender};
+pub use db::{Channel, Item};
 pub use messages::{ToApp, ToWorker, WorkerError};
 use parking_lot::Once;
 use tracing::{error, info};
@@ -42,12 +43,19 @@ impl Worker {
                                 self.initialize_app_fs();
 
                                 self.initialize_database().await;
+
+                                self.update_channel_list().await;
                             }
                             ToWorker::UpdateFeed => {
                                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                                 self.sender
                                     .send(ToApp::UpdateFeed { entries: vec![] })
                                     .unwrap();
+                            }
+                            ToWorker::AddChannel { link } => {
+                                self.add_channel(&link).await;
+
+                                self.update_channel_list().await;
                             }
                         }
                         self.egui_ctx.request_repaint();
@@ -85,6 +93,68 @@ impl Worker {
         } else {
             info!("Initialized database.");
         };
+    }
+
+    async fn add_channel(&mut self, link: &str) {
+        let result = match reqwest::get(link).await {
+            Ok(result) => result,
+            Err(err) => {
+                self.report_error("Web request failed", err.to_string());
+                return;
+            }
+        };
+        let bytes = match result.bytes().await {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                self.report_error("Malformed response", err.to_string());
+                return;
+            }
+        };
+        let parsed_feed = match feed_rs::parser::parse(&bytes[..]) {
+            Ok(feed) => feed,
+            Err(err) => {
+                self.report_error("Failed to parse response", err.to_string());
+                return;
+            }
+        };
+        let mut channel = db::Channel {
+            id: parsed_feed.id,
+            ..Default::default()
+        };
+        channel.kind = match parsed_feed.feed_type {
+            feed_rs::model::FeedType::Atom => "Atom".into(),
+            feed_rs::model::FeedType::JSON => "JSON".into(),
+            feed_rs::model::FeedType::RSS0 => "RSS0".into(),
+            feed_rs::model::FeedType::RSS1 => "RSS1".into(),
+            feed_rs::model::FeedType::RSS2 => "RSS2".into(),
+        };
+        channel.link = link.into();
+        channel.title = match parsed_feed.title {
+            Some(text) => Some(text.content),
+            None => None,
+        };
+        channel.description = match parsed_feed.description {
+            Some(text) => Some(text.content),
+            None => None,
+        };
+        if let Err(err) = db::add_channel(channel).await {
+            self.report_error("Failed to save new channel", err.to_string())
+        };
+        info!("Added new channel to database. (link: {})", link);
+    }
+
+    async fn update_channel_list(&mut self) {
+        let channels = match db::get_all_channels().await {
+            Ok(channels) => channels,
+            Err(err) => {
+                self.report_error("Failed to fetch channel from db", err.to_string());
+                return;
+            }
+        };
+
+        self.sender
+            .send(ToApp::UpdateChannels { channels })
+            .unwrap();
     }
 
     fn report_error(&mut self, description: impl Into<String>, message: impl Into<String>) {

@@ -1,7 +1,10 @@
-use crate::worker::{ToApp, ToWorker, Worker, WorkerError};
+use crate::worker::{Channel, Item, ToApp, ToWorker, Worker, WorkerError};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
-use egui::{Align, CentralPanel, Context, Frame, Label, Layout, Margin, TopBottomPanel};
+use egui::{
+    Align, Button, CentralPanel, Context, Frame, Label, Layout, Margin, ScrollArea, TextEdit,
+    TopBottomPanel,
+};
 use tracing::error;
 
 #[derive(Default, PartialEq)]
@@ -15,9 +18,10 @@ enum Page {
 #[derive(Default)]
 pub struct TinyrssApp {
     page: Page,
+    channel_input: String,
 
-    channels: Vec<i32>,
-    feed_entries: Vec<i32>,
+    channels: Vec<Channel>,
+    feed_entries: Vec<Item>,
 
     worker_status: WorkerStatus,
     sender: Option<Sender<ToWorker>>,
@@ -73,6 +77,9 @@ impl eframe::App for TinyrssApp {
                         );
                         self.worker_status.worker_errors.push(error);
                     }
+                    ToApp::UpdateChannels { channels } => {
+                        self.channels = channels;
+                    }
                 }
             }
         }
@@ -125,7 +132,32 @@ impl TinyrssApp {
     }
 
     fn render_channels_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Channels page");
+        ui.horizontal(|ui| {
+            ui.add(
+                TextEdit::singleline(&mut self.channel_input).hint_text("Search or add channels"),
+            );
+            if ui
+                .add_enabled(!self.channel_input.is_empty(), Button::new("Add"))
+                .clicked()
+            {
+                self.add_channel(&self.channel_input.clone());
+                self.channel_input = "".to_string();
+            };
+        });
+        ScrollArea::vertical().show(ui, |ui| {
+            for channel in &self.channels {
+                if let Some(title) = &channel.title {
+                    ui.heading(title);
+                } else {
+                    ui.heading("<no title>");
+                }
+                if let Some(description) = &channel.description {
+                    ui.heading(description);
+                } else {
+                    ui.heading("<no description>");
+                }
+            }
+        });
     }
 
     fn render_settings_page(&mut self, ui: &mut egui::Ui) {
@@ -164,6 +196,16 @@ impl TinyrssApp {
                     retain
                 });
             });
+        }
+    }
+}
+
+impl TinyrssApp {
+    fn add_channel(&mut self, link: &str) {
+        if let Some(sender) = &self.sender {
+            sender
+                .send(ToWorker::AddChannel { link: link.into() })
+                .unwrap();
         }
     }
 }
