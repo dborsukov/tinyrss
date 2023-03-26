@@ -10,6 +10,8 @@ mod utils;
 
 static CHANNEL_CLOSED: Once = Once::new();
 
+struct FeedParsingError;
+
 pub struct Worker {
     sender: Sender<ToApp>,
     receiver: Receiver<ToWorker>,
@@ -77,6 +79,14 @@ impl Worker {
 
                                 self.update_feed().await;
                             }
+                            ToWorker::ImportChannels => {
+                                self.import_channels().await;
+
+                                self.update_channel_list().await;
+                            }
+                            ToWorker::ExportChannels => {
+                                self.export_channels().await;
+                            }
                         }
                         self.egui_ctx.request_repaint();
                     }
@@ -115,27 +125,38 @@ impl Worker {
         };
     }
 
-    async fn add_channel(&mut self, link: &str) {
+    async fn parse_xml_link(
+        &mut self,
+        link: &str,
+    ) -> Result<feed_rs::model::Feed, FeedParsingError> {
         let result = match reqwest::get(link).await {
             Ok(result) => result,
             Err(err) => {
                 self.report_error("Web request failed", err.to_string());
-                return;
+                return Err(FeedParsingError);
             }
         };
         let bytes = match result.bytes().await {
             Ok(bytes) => bytes,
             Err(err) => {
                 self.report_error("Malformed response", err.to_string());
-                return;
+                return Err(FeedParsingError);
             }
         };
         let parsed_feed = match feed_rs::parser::parse(&bytes[..]) {
             Ok(feed) => feed,
             Err(err) => {
                 self.report_error("Failed to parse response", err.to_string());
-                return;
+                return Err(FeedParsingError);
             }
+        };
+        Ok(parsed_feed)
+    }
+
+    async fn add_channel(&mut self, link: &str) {
+        let parsed_feed = match self.parse_xml_link(link).await {
+            Ok(feed) => feed,
+            Err(_) => return,
         };
         let mut channel = db::Channel {
             id: parsed_feed.id,
@@ -189,26 +210,9 @@ impl Worker {
         };
 
         for channel in channels {
-            let result = match reqwest::get(channel.link).await {
-                Ok(result) => result,
-                Err(err) => {
-                    self.report_error("Web request failed", err.to_string());
-                    return;
-                }
-            };
-            let bytes = match result.bytes().await {
-                Ok(bytes) => bytes,
-                Err(err) => {
-                    self.report_error("Malformed response", err.to_string());
-                    return;
-                }
-            };
-            let parsed_entries = match feed_rs::parser::parse(&bytes[..]) {
+            let parsed_entries = match self.parse_xml_link(&channel.link).await {
                 Ok(feed) => feed.entries,
-                Err(err) => {
-                    self.report_error("Failed to parse response", err.to_string());
-                    return;
-                }
+                Err(_) => return,
             };
             for entry in parsed_entries {
                 let mut item = Item {
@@ -282,6 +286,93 @@ impl Worker {
         if let Err(err) = db::unsubscribe(id).await {
             self.report_error("Falied to unsubscribe", err.to_string());
         }
+    }
+
+    async fn import_channels(&mut self) {
+        let file_handle = rfd::AsyncFileDialog::new()
+            .add_filter("OPML", &["xml"])
+            .pick_file()
+            .await;
+        if let Some(file_handle) = file_handle {
+            let xml = match std::fs::read_to_string(file_handle.path()) {
+                Ok(string) => string,
+                Err(err) => {
+                    self.report_error("Failed to read file", err.to_string());
+                    return;
+                }
+            };
+            let opml = match opml::OPML::from_str(&xml) {
+                Ok(opml) => opml,
+                Err(err) => {
+                    self.report_error("Failed to parse xml", err.to_string());
+                    return;
+                }
+            };
+            let mut parsed_channels = 0;
+            for outline in opml.body.outlines {
+                parsed_channels += self.traverse_outline_and_add_channels(outline).await;
+            }
+            info!("Import finished. Parsed channels: {}", parsed_channels);
+        }
+    }
+
+    #[async_recursion::async_recursion]
+    async fn traverse_outline_and_add_channels(&mut self, root_outline: opml::Outline) -> i32 {
+        let mut parsed_channels = 0;
+        for outline in root_outline.outlines {
+            parsed_channels += self.traverse_outline_and_add_channels(outline).await;
+        }
+        if let Some(link) = root_outline.xml_url {
+            self.add_channel(&link).await;
+            parsed_channels += 1;
+        };
+        parsed_channels
+    }
+
+    async fn export_channels(&mut self) {
+        let file_handle = rfd::AsyncFileDialog::new()
+            .add_filter("OPML", &["xml"])
+            .save_file()
+            .await;
+        if let Some(file_handle) = file_handle {
+            let xml = r#"<opml version="2.0"><head/><body><outline text="Outline"/></body></opml>"#;
+            let mut opml = match opml::OPML::from_str(&xml) {
+                Ok(opml) => opml,
+                Err(err) => {
+                    self.report_error("Failed to parse xml", err.to_string());
+                    return;
+                }
+            };
+            let channels = match db::get_all_channels().await {
+                Ok(channels) => channels,
+                Err(err) => {
+                    self.report_error("Failed to fetch channel from db", err.to_string());
+                    return;
+                }
+            };
+
+            let mut group = opml::Outline::default();
+
+            for channel in channels {
+                group.add_feed(
+                    &channel.title.unwrap_or("Unknown".to_string()),
+                    &channel.link,
+                );
+            }
+
+            opml.body.outlines.push(group);
+
+            let mut file = match std::fs::File::create(file_handle.path()) {
+                Ok(file) => file,
+                Err(err) => {
+                    self.report_error("Failed to create file", err.to_string());
+                    return;
+                }
+            };
+            if let Err(err) = opml.to_writer(&mut file) {
+                self.report_error("Failed to write file", err.to_string());
+            };
+        };
     }
 
     fn report_error(&mut self, description: impl Into<String>, message: impl Into<String>) {

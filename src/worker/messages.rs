@@ -13,6 +13,8 @@ pub enum ToWorker {
     SetDismissed { id: String, dismissed: bool },
     DismissAll,
     Unsubscribe { id: String },
+    ImportChannels,
+    ExportChannels
 }
 
 pub struct WorkerError {

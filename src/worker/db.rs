@@ -14,7 +14,7 @@ pub async fn create_tables() -> Result<()> {
         CREATE TABLE IF NOT EXISTS channels (
             id VARCHAR NOT NULL UNIQUE PRIMARY KEY,
             kind VARCHAR NOT NULL,
-            link VARCHAR NOT NULL,
+            link VARCHAR NOT NULL UNIQUE,
             title VARCHAR,
             description VARCHAR
         );
@@ -60,7 +60,7 @@ pub struct Item {
 pub async fn add_channel(channel: Channel) -> Result<()> {
     let mut conn = establish_connection().await?;
 
-    query("INSERT INTO channels (id, kind, link, title, description) VALUES (?, ?, ?, ?, ?)")
+    query("INSERT OR IGNORE INTO channels (id, kind, link, title, description) VALUES (?, ?, ?, ?, ?)")
         .bind(channel.id)
         .bind(channel.kind)
         .bind(channel.link)

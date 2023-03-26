@@ -2,8 +2,8 @@ use crate::worker::{Channel, Item, ToApp, ToWorker, Worker, WorkerError};
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
 use egui::{
-    Align, Button, CentralPanel, ComboBox, Context, Direction, Frame, Label, Layout, Margin,
-    ScrollArea, TextEdit, TopBottomPanel,
+    Align, Button, CentralPanel, CollapsingHeader, ComboBox, Context, Direction, Frame, Label,
+    Layout, Margin, RichText, ScrollArea, TextEdit, TopBottomPanel,
 };
 use tracing::error;
 
@@ -299,7 +299,20 @@ impl TinyrssApp {
     }
 
     fn render_settings_page(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Settings page");
+        CollapsingHeader::new(RichText::new("Channels").strong().heading())
+            .default_open(false)
+            .show(ui, |ui| {
+                if ui.button("Import").clicked() {
+                    if let Some(sender) = &self.sender {
+                        sender.send(ToWorker::ImportChannels).unwrap();
+                    }
+                }
+                if ui.button("Export").clicked() {
+                    if let Some(sender) = &self.sender {
+                        sender.send(ToWorker::ExportChannels).unwrap();
+                    }
+                }
+            });
     }
 
     fn render_footer(&mut self, ctx: &Context) {
