@@ -45,7 +45,15 @@ pub struct Channel {
 }
 
 #[derive(Debug, Default, FromRow)]
-pub struct Item {}
+pub struct Item {
+    pub id: String,
+    pub link: String,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub published: i64,
+    pub channel_title: Option<String>,
+    pub channel: String,
+}
 
 pub async fn add_channel(channel: Channel) -> Result<()> {
     let mut conn = establish_connection().await?;
@@ -71,4 +79,39 @@ pub async fn get_all_channels() -> Result<Vec<Channel>> {
             .await?;
 
     Ok(channels)
+}
+
+pub async fn add_items(items: Vec<Item>) -> Result<()> {
+    let mut conn = establish_connection().await?;
+
+    let mut tz = conn.begin().await?;
+
+    for item in items {
+        query("INSERT OR IGNORE INTO items (id, link, title, summary, published, channel_title, channel) VALUES (?, ?, ?, ?, ?, ?, ?)")
+            .bind(item.id)
+            .bind(item.link)
+            .bind(item.title)
+            .bind(item.summary)
+            .bind(item.published)
+            .bind(item.channel_title)
+            .bind(item.channel)
+            .execute(&mut tz)
+            .await?;
+    }
+
+    tz.commit().await?;
+
+    Ok(())
+}
+
+pub async fn get_all_items() -> Result<Vec<Item>> {
+    let mut conn = establish_connection().await?;
+
+    let items = query_as::<_, Item>(
+        "SELECT id, link, title, summary, published, channel_title, channel FROM items",
+    )
+    .fetch_all(&mut conn)
+    .await?;
+
+    Ok(items)
 }

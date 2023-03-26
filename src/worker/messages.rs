@@ -2,7 +2,7 @@ use crate::worker::db;
 
 pub enum ToApp {
     WorkerError { error: WorkerError },
-    UpdateFeed { entries: Vec<db::Item> },
+    UpdateFeed { items: Vec<db::Item> },
     UpdateChannels { channels: Vec<db::Channel> },
 }
 

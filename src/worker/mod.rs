@@ -45,12 +45,15 @@ impl Worker {
                                 self.initialize_database().await;
 
                                 self.update_channel_list().await;
+
+                                self.parse_channels().await;
+
+                                self.update_feed().await;
                             }
                             ToWorker::UpdateFeed => {
-                                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                                self.sender
-                                    .send(ToApp::UpdateFeed { entries: vec![] })
-                                    .unwrap();
+                                self.parse_channels().await;
+
+                                self.update_feed().await;
                             }
                             ToWorker::AddChannel { link } => {
                                 self.add_channel(&link).await;
@@ -155,6 +158,94 @@ impl Worker {
         self.sender
             .send(ToApp::UpdateChannels { channels })
             .unwrap();
+    }
+
+    async fn parse_channels(&mut self) {
+        let mut items: Vec<Item> = vec![];
+
+        let channels = match db::get_all_channels().await {
+            Ok(channels) => channels,
+            Err(err) => {
+                self.report_error("Failed to fetch channel from db", err.to_string());
+                return;
+            }
+        };
+
+        for channel in channels {
+            let result = match reqwest::get(channel.link).await {
+                Ok(result) => result,
+                Err(err) => {
+                    self.report_error("Web request failed", err.to_string());
+                    return;
+                }
+            };
+            let bytes = match result.bytes().await {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    self.report_error("Malformed response", err.to_string());
+                    return;
+                }
+            };
+            let parsed_entries = match feed_rs::parser::parse(&bytes[..]) {
+                Ok(feed) => feed.entries,
+                Err(err) => {
+                    self.report_error("Failed to parse response", err.to_string());
+                    return;
+                }
+            };
+            for entry in parsed_entries {
+                let mut item = Item {
+                    id: entry.id,
+                    channel_title: channel.title.clone(),
+                    channel: channel.id.clone(),
+                    ..Default::default()
+                };
+
+                if entry.links.len() > 0 {
+                    item.link = entry.links[0].href.clone();
+                } else {
+                    item.link = "<no link>".to_string();
+                }
+
+                item.title = match entry.title {
+                    Some(text) => Some(text.content),
+                    None => None,
+                };
+
+                item.summary = match entry.summary {
+                    Some(text) => Some(text.content),
+                    None => None,
+                };
+
+                if entry.published.is_some() {
+                    item.published = entry.published.unwrap().timestamp()
+                } else if entry.updated.is_some() {
+                    item.published = entry.updated.unwrap().timestamp()
+                } else {
+                    item.published = 0;
+                }
+
+                items.push(item);
+            }
+        }
+
+        if let Err(err) = db::add_items(items).await {
+            self.report_error("Failed to save new feed items", err.to_string())
+        };
+
+        info!("Feed update finished.");
+    }
+
+    async fn update_feed(&mut self) {
+        let items = match db::get_all_items().await {
+            Ok(items) => items,
+            Err(err) => {
+                self.report_error("Failed to fetch items from db", err.to_string());
+                return;
+            }
+        };
+
+        self.sender.send(ToApp::UpdateFeed { items }).unwrap();
     }
 
     fn report_error(&mut self, description: impl Into<String>, message: impl Into<String>) {

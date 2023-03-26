@@ -21,7 +21,7 @@ pub struct TinyrssApp {
     channel_input: String,
 
     channels: Vec<Channel>,
-    feed_entries: Vec<Item>,
+    feed_items: Vec<Item>,
 
     worker_status: WorkerStatus,
     sender: Option<Sender<ToWorker>>,
@@ -49,6 +49,8 @@ impl TinyrssApp {
         app.sender = Some(app_tx);
         app.receiver = Some(worker_rx);
 
+        app.worker_status.updating_feed = true;
+
         if let Some(sender) = &app.sender {
             sender.send(ToWorker::Startup).unwrap();
         }
@@ -62,13 +64,9 @@ impl eframe::App for TinyrssApp {
         if let Some(receiver) = &self.receiver {
             if let Ok(message) = receiver.try_recv() {
                 match message {
-                    ToApp::UpdateFeed { entries } => {
+                    ToApp::UpdateFeed { items } => {
                         self.worker_status.updating_feed = false;
-                        self.feed_entries = entries;
-                        self.worker_status.worker_errors.push(WorkerError {
-                            description: "Test".into(),
-                            error_message: "Test".into(),
-                        })
+                        self.feed_items = items;
                     }
                     ToApp::WorkerError { error } => {
                         error!(
@@ -121,13 +119,22 @@ impl TinyrssApp {
         if self.worker_status.updating_feed {
             ui.spinner();
         } else {
-            ui.heading("Feed page");
-            if ui.button("Update feed").clicked() {
-                if let Some(sender) = &self.sender {
-                    self.worker_status.updating_feed = true;
-                    sender.send(ToWorker::UpdateFeed).unwrap();
+            ScrollArea::vertical().show(ui, |ui| {
+                for item in &self.feed_items {
+                    if let Some(title) = &item.title {
+                        ui.heading(title);
+                    } else {
+                        ui.heading("<no title>");
+                    }
+                    ui.horizontal(|ui| {
+                        if let Some(channel_title) = &item.channel_title {
+                            ui.label(channel_title);
+                        }
+                        ui.label(" * ");
+                        ui.label(item.published.to_string());
+                    });
                 }
-            }
+            });
         }
     }
 
