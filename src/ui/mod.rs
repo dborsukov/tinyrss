@@ -4,7 +4,7 @@ use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
 use egui::{
     Align, Button, CentralPanel, CollapsingHeader, ComboBox, Context, Direction, Frame, Label,
-    Layout, Margin, RichText, ScrollArea, Spinner, TextEdit, TopBottomPanel, Vec2,
+    Layout, Margin, ProgressBar, RichText, ScrollArea, TextEdit, TopBottomPanel, Vec2,
 };
 use lazy_static::lazy_static;
 use theme::Theme;
@@ -50,6 +50,7 @@ pub struct TinyrssApp {
 #[derive(Default)]
 struct WorkerStatus {
     updating_feed: bool,
+    update_progress: f32,
     worker_errors: Vec<WorkerError>,
 }
 
@@ -87,7 +88,11 @@ impl eframe::App for TinyrssApp {
                 match message {
                     ToApp::UpdateFeed { items } => {
                         self.worker_status.updating_feed = false;
+                        self.worker_status.update_progress = 0.0;
                         self.feed_items = items;
+                    }
+                    ToApp::FeedUpdateProgress { progress } => {
+                        self.worker_status.update_progress = progress;
                     }
                     ToApp::WorkerError { error } => {
                         error!(
@@ -176,7 +181,11 @@ impl TinyrssApp {
             ui.with_layout(
                 Layout::centered_and_justified(Direction::LeftToRight),
                 |ui| {
-                    ui.add(Spinner::new().size(24.0));
+                    ui.add(
+                        ProgressBar::new(self.worker_status.update_progress)
+                            .desired_width(300.0)
+                            .animate(true),
+                    )
                 },
             );
         } else {

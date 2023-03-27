@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use bytes::Bytes;
 use crossbeam_channel::{Receiver, Sender};
 pub use db::{Channel, Item};
 use feed_rs::model::Feed;
 use futures::{stream, StreamExt};
 pub use messages::{ToApp, ToWorker, WorkerError};
-use parking_lot::Once;
+use parking_lot::{Mutex, Once};
 use reqwest::Client;
 use tracing::{error, info};
 
@@ -259,6 +261,8 @@ impl Worker {
             }
         };
 
+        let channels_total: f32 = channels.len() as f32;
+
         info!("Started parsing.");
 
         let client = Client::new();
@@ -309,8 +313,19 @@ impl Worker {
 
         let mut bindings: Vec<ChannelFeedBinding> = vec![];
 
+        let processed_channels: Arc<Mutex<f32>> = Arc::new(Mutex::new(0.0));
+
         bindings = results
             .fold(bindings, |mut bindings, r| async {
+                let sender = self.sender.clone();
+                let processed_arc = Arc::clone(&processed_channels);
+                let mut processed = processed_arc.lock();
+                *processed += 1.0;
+                sender
+                    .send(ToApp::FeedUpdateProgress {
+                        progress: *processed / channels_total,
+                    })
+                    .unwrap();
                 match r.bytes {
                     Some(bytes) => {
                         let feed = if let Ok(feed) = feed_rs::parser::parse(&bytes[..]) {
