@@ -165,7 +165,7 @@ impl TinyrssApp {
     fn render_central_panel(&mut self, ctx: &Context) {
         CentralPanel::default().show(ctx, |ui| match self.page {
             Page::Feed => {
-                self.render_feed_page(ui);
+                self.render_feed_page(ctx, ui);
             }
             Page::Channels => {
                 self.render_channels_page(ui);
@@ -176,7 +176,7 @@ impl TinyrssApp {
         });
     }
 
-    fn render_feed_page(&mut self, ui: &mut egui::Ui) {
+    fn render_feed_page(&mut self, ctx: &Context, ui: &mut egui::Ui) {
         if self.worker_status.updating_feed {
             ui.with_layout(
                 Layout::centered_and_justified(Direction::LeftToRight),
@@ -271,11 +271,37 @@ impl TinyrssApp {
                         }
                     });
                 });
+
+                let modal = egui_modal::Modal::new(ctx, "modal_dismiss_all");
+
+                modal.show(|ui| {
+                    modal.title(ui, "Warning");
+                    let amount = self
+                        .feed_items
+                        .iter()
+                        .filter(|item| !item.dismissed)
+                        .count();
+                    modal.body(ui, format!("All new items will be dismissed! ({})", amount));
+                    modal.buttons(ui, |ui| {
+                        ui.spacing_mut().button_padding = Vec2::new(8., 4.);
+                        if ui.add(Button::new("Close")).clicked() {
+                            modal.close();
+                        };
+                        if ui
+                            .add(Button::new("Confirm").fill(THEME.colors.warning))
+                            .clicked()
+                        {
+                            self.dismiss_all();
+                            modal.close();
+                        };
+                    });
+                });
+
                 ui.with_layout(Layout::bottom_up(Align::RIGHT), |ui| {
                     if self.feed_type_combo == FeedTypeCombo::New {
                         ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
                             if ui.link("Dismiss all").clicked() {
-                                self.dismiss_all();
+                                modal.open();
                             }
                         });
                     }
