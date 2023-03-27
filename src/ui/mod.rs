@@ -171,7 +171,7 @@ impl TinyrssApp {
                 self.render_channels_page(ui);
             }
             Page::Settings => {
-                self.render_settings_page(ui);
+                self.render_settings_page(ctx, ui);
             }
         });
     }
@@ -384,20 +384,124 @@ impl TinyrssApp {
         }
     }
 
-    fn render_settings_page(&mut self, ui: &mut egui::Ui) {
+    fn render_settings_page(&mut self, ctx: &Context, ui: &mut egui::Ui) {
         CollapsingHeader::new(RichText::new("Channels").strong().heading())
-            .default_open(false)
+            .default_open(true)
             .show(ui, |ui| {
-                if ui.button("Import").clicked() {
-                    if let Some(sender) = &self.sender {
-                        sender.send(ToWorker::ImportChannels).unwrap();
-                    }
+                ui.spacing_mut().button_padding = Vec2::new(6., 3.);
+                ui.add_space(THEME.spacing.large);
+                ui.horizontal(|ui| {
+                    ui.label("OPML");
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui.button("Import").clicked() {
+                            if let Some(sender) = &self.sender {
+                                sender.send(ToWorker::ImportChannels).unwrap();
+                            }
+                        }
+                        if ui.button("Export").clicked() {
+                            if let Some(sender) = &self.sender {
+                                sender.send(ToWorker::ExportChannels).unwrap();
+                            }
+                        }
+                    })
+                });
+                ui.add_space(THEME.spacing.large);
+
+                let modal = egui_modal::Modal::new(ctx, "modal_manage_channels");
+
+                if !self.channels.is_empty() {
+                    let combo_id = ui.id().with("combo_channel");
+                    let mut combo_channel = ui.data_mut(|d| {
+                        d.get_temp::<String>(combo_id)
+                            .unwrap_or(self.channels[0].id.clone())
+                    });
+
+                    let edit_title_id = ui.id().with("edit_title");
+                    let mut edit_title = ui
+                        .data_mut(|d| d.get_temp::<String>(edit_title_id).unwrap_or(String::new()));
+
+                    modal.show(|ui| {
+                        modal.title(ui, "Manage channels");
+                        modal.frame(ui, |ui| {
+                            ui.add_space(THEME.spacing.medium);
+                            ui.horizontal(|ui| {
+                                ui.label("Channel:");
+                                ComboBox::from_id_source("channel_choose_combo")
+                                    .selected_text(
+                                        self.channels
+                                            .iter()
+                                            .find(|c| c.id == combo_channel)
+                                            .unwrap()
+                                            .title
+                                            .clone()
+                                            .unwrap_or("<no title>".to_string()),
+                                    )
+                                    .wrap(true)
+                                    .width(ui.available_width())
+                                    .show_ui(ui, |ui| {
+                                        for channel in &self.channels {
+                                            ui.selectable_value(
+                                                &mut combo_channel,
+                                                channel.id.clone(),
+                                                channel
+                                                    .title
+                                                    .clone()
+                                                    .unwrap_or("<no title>".to_string()),
+                                            );
+                                        }
+                                    });
+                            });
+                            ui.add_space(THEME.spacing.large);
+                            ui.horizontal(|ui| {
+                                ui.label("New title:");
+                                ui.add(
+                                    TextEdit::singleline(&mut edit_title)
+                                        .desired_width(ui.available_width()),
+                                );
+                            });
+                        });
+                        modal.buttons(ui, |ui| {
+                            ui.spacing_mut().button_padding = Vec2::new(8., 4.);
+                            if ui.add(Button::new("Close")).clicked() {
+                                modal.close();
+                            };
+                            if ui
+                                .add_enabled(!edit_title.is_empty(), Button::new("Save"))
+                                .clicked()
+                            {
+                                let channel = self
+                                    .channels
+                                    .iter()
+                                    .find(|c| c.id == combo_channel)
+                                    .unwrap();
+                                if let Some(sender) = &self.sender {
+                                    sender
+                                        .send(ToWorker::EditChannel {
+                                            id: channel.id.clone(),
+                                            title: edit_title.clone(),
+                                        })
+                                        .unwrap();
+                                }
+                                modal.close();
+                            };
+                        });
+                    });
+
+                    ui.data_mut(|d| d.insert_temp(combo_id, combo_channel));
+                    ui.data_mut(|d| d.insert_temp(edit_title_id, edit_title));
                 }
-                if ui.button("Export").clicked() {
-                    if let Some(sender) = &self.sender {
-                        sender.send(ToWorker::ExportChannels).unwrap();
-                    }
-                }
+
+                ui.horizontal(|ui| {
+                    ui.label("Manage channels");
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui
+                            .add_enabled(!self.channels.is_empty(), Button::new("Manage"))
+                            .clicked()
+                        {
+                            modal.open();
+                        }
+                    })
+                });
             });
     }
 

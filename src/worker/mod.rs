@@ -56,7 +56,7 @@ impl Worker {
 
                                 self.update_channel_list().await;
 
-                                self.parse_channels().await;
+                                // self.parse_channels().await;
 
                                 self.update_feed().await;
                             }
@@ -70,6 +70,11 @@ impl Worker {
                             }
                             ToWorker::AddChannel { link } => {
                                 self.add_channels(vec![link]).await;
+
+                                self.update_channel_list().await;
+                            }
+                            ToWorker::EditChannel { id, title } => {
+                                self.edit_channel(id, title).await;
 
                                 self.update_channel_list().await;
                             }
@@ -250,6 +255,12 @@ impl Worker {
         self.sender
             .send(ToApp::UpdateChannels { channels })
             .unwrap();
+    }
+
+    async fn edit_channel(&mut self, id: String, title: String) {
+        if let Err(err) = db::edit_channel(id, title).await {
+            self.report_error("Falied to edit channel", err.to_string());
+        }
     }
 
     async fn parse_channels(&mut self) {

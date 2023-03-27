@@ -89,6 +89,24 @@ pub async fn get_all_channels() -> Result<Vec<Channel>> {
     Ok(channels)
 }
 
+pub async fn edit_channel(id: String, title: String) -> Result<()> {
+    let mut conn = establish_connection().await?;
+
+    query("UPDATE channels SET title = ? WHERE id = ?")
+        .bind(&title)
+        .bind(&id)
+        .execute(&mut conn)
+        .await?;
+
+    query("UPDATE items SET channel_title = ? WHERE channel = ?")
+        .bind(&title)
+        .bind(&id)
+        .execute(&mut conn)
+        .await?;
+
+    Ok(())
+}
+
 pub async fn add_items(items: Vec<Item>) -> Result<()> {
     let mut conn = establish_connection().await?;
 

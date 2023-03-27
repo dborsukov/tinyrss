@@ -12,6 +12,7 @@ pub enum ToWorker {
     Shutdown,
     UpdateFeed,
     AddChannel { link: String },
+    EditChannel { id: String, title: String },
     SetDismissed { id: String, dismissed: bool },
     DismissAll,
     Unsubscribe { id: String },
