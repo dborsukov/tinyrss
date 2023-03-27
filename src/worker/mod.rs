@@ -1,7 +1,11 @@
+use bytes::Bytes;
 use crossbeam_channel::{Receiver, Sender};
 pub use db::{Channel, Item};
+use feed_rs::model::Feed;
+use futures::{stream, StreamExt};
 pub use messages::{ToApp, ToWorker, WorkerError};
 use parking_lot::Once;
+use reqwest::Client;
 use tracing::{error, info};
 
 mod db;
@@ -9,7 +13,9 @@ mod messages;
 mod utils;
 
 static CHANNEL_CLOSED: Once = Once::new();
+static CONCURRENT_REQUESTS: usize = 5;
 
+#[derive(Debug)]
 struct FeedParsingError;
 
 pub struct Worker {
@@ -48,7 +54,7 @@ impl Worker {
 
                                 self.update_channel_list().await;
 
-                                // self.parse_channels().await;
+                                self.parse_channels().await;
 
                                 self.update_feed().await;
                             }
@@ -61,7 +67,7 @@ impl Worker {
                                 self.update_feed().await;
                             }
                             ToWorker::AddChannel { link } => {
-                                self.add_channel(&link).await;
+                                self.add_channels(vec![link]).await;
 
                                 self.update_channel_list().await;
                             }
@@ -128,63 +134,106 @@ impl Worker {
         };
     }
 
-    async fn parse_xml_link(
-        &mut self,
-        link: &str,
-    ) -> Result<feed_rs::model::Feed, FeedParsingError> {
-        let result = match reqwest::get(link).await {
-            Ok(result) => result,
-            Err(err) => {
-                self.report_error("Web request failed", err.to_string());
-                return Err(FeedParsingError);
-            }
-        };
-        let bytes = match result.bytes().await {
-            Ok(bytes) => bytes,
-            Err(err) => {
-                self.report_error("Malformed response", err.to_string());
-                return Err(FeedParsingError);
-            }
-        };
-        let parsed_feed = match feed_rs::parser::parse(&bytes[..]) {
-            Ok(feed) => feed,
-            Err(err) => {
-                self.report_error("Failed to parse response", err.to_string());
-                return Err(FeedParsingError);
-            }
-        };
-        Ok(parsed_feed)
-    }
+    async fn add_channels(&mut self, links: Vec<String>) {
+        let client = Client::new();
 
-    async fn add_channel(&mut self, link: &str) {
-        let parsed_feed = match self.parse_xml_link(link).await {
-            Ok(feed) => feed,
-            Err(_) => return,
+        struct LinkBytesBinding {
+            link: String,
+            bytes: Option<Bytes>,
+        }
+
+        let results = stream::iter(links)
+            .map(|link| {
+                let client = &client;
+                let sender = self.sender.clone();
+                async move {
+                    let resp = match client.get(&link).send().await {
+                        Ok(r) => r,
+                        Err(err) => {
+                            sender
+                                .send(ToApp::WorkerError {
+                                    error: WorkerError::new("Web request failed", err.to_string()),
+                                })
+                                .unwrap();
+                            return LinkBytesBinding { link, bytes: None };
+                        }
+                    };
+                    let res = resp.bytes().await;
+                    match res {
+                        Ok(bytes) => LinkBytesBinding {
+                            link,
+                            bytes: Some(bytes),
+                        },
+                        Err(_) => LinkBytesBinding { link, bytes: None },
+                    }
+                }
+            })
+            .buffer_unordered(CONCURRENT_REQUESTS);
+
+        struct LinkFeedBinding {
+            link: String,
+            feed: Option<Feed>,
+        }
+
+        let mut bindings: Vec<LinkFeedBinding> = vec![];
+
+        bindings = results
+            .fold(bindings, |mut bindings, r| async {
+                match r.bytes {
+                    Some(bytes) => {
+                        let feed = if let Ok(feed) = feed_rs::parser::parse(&bytes[..]) {
+                            Some(feed)
+                        } else {
+                            None
+                        };
+                        bindings.push(LinkFeedBinding { link: r.link, feed })
+                    }
+                    None => bindings.push(LinkFeedBinding {
+                        link: r.link,
+                        feed: None,
+                    }),
+                }
+                bindings
+            })
+            .await;
+
+        let mut channels: Vec<Channel> = vec![];
+
+        for binding in bindings {
+            let link = binding.link;
+            let parsed_feed = match binding.feed {
+                Some(feed) => feed,
+                None => continue,
+            };
+            let mut channel = db::Channel {
+                id: parsed_feed.id,
+                ..Default::default()
+            };
+            channel.kind = match parsed_feed.feed_type {
+                feed_rs::model::FeedType::Atom => "Atom".into(),
+                feed_rs::model::FeedType::JSON => "JSON".into(),
+                feed_rs::model::FeedType::RSS0 => "RSS0".into(),
+                feed_rs::model::FeedType::RSS1 => "RSS1".into(),
+                feed_rs::model::FeedType::RSS2 => "RSS2".into(),
+            };
+            channel.link = link.clone();
+            channel.title = match parsed_feed.title {
+                Some(text) => Some(text.content),
+                None => None,
+            };
+            channel.description = match parsed_feed.description {
+                Some(text) => Some(text.content),
+                None => None,
+            };
+            channels.push(channel);
+        }
+        info!(
+            "Saving new channels to database. (amount: {})",
+            channels.len()
+        );
+        if let Err(err) = db::add_channels(channels).await {
+            self.report_error("Failed to save new channels", err.to_string())
         };
-        let mut channel = db::Channel {
-            id: parsed_feed.id,
-            ..Default::default()
-        };
-        channel.kind = match parsed_feed.feed_type {
-            feed_rs::model::FeedType::Atom => "Atom".into(),
-            feed_rs::model::FeedType::JSON => "JSON".into(),
-            feed_rs::model::FeedType::RSS0 => "RSS0".into(),
-            feed_rs::model::FeedType::RSS1 => "RSS1".into(),
-            feed_rs::model::FeedType::RSS2 => "RSS2".into(),
-        };
-        channel.link = link.into();
-        channel.title = match parsed_feed.title {
-            Some(text) => Some(text.content),
-            None => None,
-        };
-        channel.description = match parsed_feed.description {
-            Some(text) => Some(text.content),
-            None => None,
-        };
-        if let Err(err) = db::add_channel(channel).await {
-            self.report_error("Failed to save new channel", err.to_string())
-        };
-        info!("Added new channel to database. (link: {})", link);
     }
 
     async fn update_channel_list(&mut self) {
@@ -202,8 +251,6 @@ impl Worker {
     }
 
     async fn parse_channels(&mut self) {
-        let mut items: Vec<Item> = vec![];
-
         let channels = match db::get_all_channels().await {
             Ok(channels) => channels,
             Err(err) => {
@@ -212,12 +259,90 @@ impl Worker {
             }
         };
 
-        for channel in channels {
-            let parsed_entries = match self.parse_xml_link(&channel.link).await {
-                Ok(feed) => feed.entries,
-                Err(_) => return,
-            };
-            for entry in parsed_entries {
+        info!("Started parsing.");
+
+        let client = Client::new();
+
+        struct ChannelBytesBinding {
+            channel: Channel,
+            bytes: Option<Bytes>,
+        }
+
+        let results = stream::iter(channels)
+            .map(|channel| {
+                let client = &client;
+                let sender = self.sender.clone();
+                async move {
+                    let resp = match client.get(&channel.link).send().await {
+                        Ok(r) => r,
+                        Err(err) => {
+                            sender
+                                .send(ToApp::WorkerError {
+                                    error: WorkerError::new("Web request failed", err.to_string()),
+                                })
+                                .unwrap();
+                            return ChannelBytesBinding {
+                                channel,
+                                bytes: None,
+                            };
+                        }
+                    };
+                    let res = resp.bytes().await;
+                    match res {
+                        Ok(bytes) => ChannelBytesBinding {
+                            channel,
+                            bytes: Some(bytes),
+                        },
+                        Err(_) => ChannelBytesBinding {
+                            channel,
+                            bytes: None,
+                        },
+                    }
+                }
+            })
+            .buffer_unordered(CONCURRENT_REQUESTS);
+
+        struct ChannelFeedBinding {
+            channel: Channel,
+            feed: Option<Feed>,
+        }
+
+        let mut bindings: Vec<ChannelFeedBinding> = vec![];
+
+        bindings = results
+            .fold(bindings, |mut bindings, r| async {
+                match r.bytes {
+                    Some(bytes) => {
+                        let feed = if let Ok(feed) = feed_rs::parser::parse(&bytes[..]) {
+                            Some(feed)
+                        } else {
+                            None
+                        };
+                        bindings.push(ChannelFeedBinding {
+                            channel: r.channel,
+                            feed,
+                        })
+                    }
+                    None => bindings.push(ChannelFeedBinding {
+                        channel: r.channel,
+                        feed: None,
+                    }),
+                }
+                bindings
+            })
+            .await;
+
+        info!("Finished parsing.");
+
+        let mut items: Vec<Item> = vec![];
+
+        for binding in bindings {
+            if binding.feed.is_none() {
+                continue;
+            }
+            let channel = binding.channel;
+            let feed = binding.feed.unwrap();
+            for entry in feed.entries {
                 let mut item = Item {
                     id: entry.id,
                     channel_title: channel.title.clone(),
@@ -253,6 +378,11 @@ impl Worker {
                 items.push(item);
             }
         }
+
+        info!(
+            "Saving retrieved items to database (amount: {})",
+            items.len()
+        );
 
         if let Err(err) = db::add_items(items).await {
             self.report_error("Failed to save new feed items", err.to_string())
@@ -311,25 +441,25 @@ impl Worker {
                     return;
                 }
             };
-            let mut parsed_channels = 0;
+            let mut links: Vec<String> = vec![];
             for outline in opml.body.outlines {
-                parsed_channels += self.traverse_outline_and_add_channels(outline).await;
+                links.append(&mut self.traverse_outlines(outline).await);
             }
-            info!("Import finished. Parsed channels: {}", parsed_channels);
+            info!("Amount of links collected: {}", links.len());
+            self.add_channels(links).await;
         }
     }
 
     #[async_recursion::async_recursion]
-    async fn traverse_outline_and_add_channels(&mut self, root_outline: opml::Outline) -> i32 {
-        let mut parsed_channels = 0;
+    async fn traverse_outlines(&mut self, root_outline: opml::Outline) -> Vec<String> {
+        let mut links: Vec<String> = vec![];
         for outline in root_outline.outlines {
-            parsed_channels += self.traverse_outline_and_add_channels(outline).await;
+            links.append(&mut self.traverse_outlines(outline).await);
         }
         if let Some(link) = root_outline.xml_url {
-            self.add_channel(&link).await;
-            parsed_channels += 1;
+            links.push(link);
         };
-        parsed_channels
+        links
     }
 
     async fn export_channels(&mut self) {

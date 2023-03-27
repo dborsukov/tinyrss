@@ -57,17 +57,23 @@ pub struct Item {
     pub channel: String,
 }
 
-pub async fn add_channel(channel: Channel) -> Result<()> {
+pub async fn add_channels(channels: Vec<Channel>) -> Result<()> {
     let mut conn = establish_connection().await?;
 
-    query("INSERT OR IGNORE INTO channels (id, kind, link, title, description) VALUES (?, ?, ?, ?, ?)")
+    let mut tz = conn.begin().await?;
+
+    for channel in channels {
+        query("INSERT OR IGNORE INTO channels (id, kind, link, title, description) VALUES (?, ?, ?, ?, ?)")
         .bind(channel.id)
         .bind(channel.kind)
         .bind(channel.link)
         .bind(channel.title)
         .bind(channel.description)
-        .execute(&mut conn)
+        .execute(&mut tz)
         .await?;
+    }
+
+    tz.commit().await?;
 
     Ok(())
 }
