@@ -7,8 +7,17 @@ fn main() -> eframe::Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
         std::env::set_var("RUST_BACKTRACE", "1");
     }
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "info");
+    }
 
-    tracing_subscriber::fmt::fmt().init();
+    let ef = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap()
+        .add_directive("sqlx=warn".parse().unwrap());
+
+    let ts = tracing_subscriber::fmt::fmt().with_env_filter(ef);
+
+    ts.init();
 
     let native_options = eframe::NativeOptions {
         centered: true,
