@@ -8,13 +8,14 @@ pub enum ToApp {
 
 pub enum ToWorker {
     Startup,
+    Shutdown,
     UpdateFeed,
     AddChannel { link: String },
     SetDismissed { id: String, dismissed: bool },
     DismissAll,
     Unsubscribe { id: String },
     ImportChannels,
-    ExportChannels
+    ExportChannels,
 }
 
 pub struct WorkerError {

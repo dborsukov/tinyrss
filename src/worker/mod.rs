@@ -52,6 +52,9 @@ impl Worker {
 
                                 self.update_feed().await;
                             }
+                            ToWorker::Shutdown => {
+                                std::process::exit(0);
+                            }
                             ToWorker::UpdateFeed => {
                                 self.parse_channels().await;
 

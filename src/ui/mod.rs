@@ -109,6 +109,12 @@ impl eframe::App for TinyrssApp {
 
         self.render_footer(ctx);
     }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        if let Some(sender) = &self.sender {
+            sender.send(ToWorker::Shutdown).unwrap();
+        }
+    }
 }
 
 impl TinyrssApp {
