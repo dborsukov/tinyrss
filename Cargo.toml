@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 async-recursion = "1.0.4"
 chrono = "0.4.24"
+copypasta = "0.8.2"
 crossbeam-channel = "0.5.7"
 dirs = "5.0"
 eframe = "0.21.0"

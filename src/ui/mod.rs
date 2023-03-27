@@ -253,9 +253,28 @@ impl TinyrssApp {
 
     fn render_channels_page(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.add(
-                TextEdit::singleline(&mut self.channel_input).hint_text("Search or add channels"),
-            );
+            if ui.button("Paste").clicked() {
+                let mut ctx = match copypasta::ClipboardContext::new() {
+                    Ok(ctx) => ctx,
+                    Err(err) => {
+                        self.worker_status
+                            .worker_errors
+                            .push(WorkerError::new("Clipboard error", err.to_string()));
+                        return;
+                    }
+                };
+                let clipboard_content = match ctx.get_contents() {
+                    Ok(ctx) => ctx,
+                    Err(err) => {
+                        self.worker_status.worker_errors.push(WorkerError::new(
+                            "Failed to access clipboard",
+                            err.to_string(),
+                        ));
+                        return;
+                    }
+                };
+                self.channel_input = clipboard_content;
+            }
             if ui
                 .add_enabled(!self.channel_input.is_empty(), Button::new("Add"))
                 .clicked()
@@ -263,6 +282,10 @@ impl TinyrssApp {
                 self.add_channel(&self.channel_input.clone());
                 self.channel_input = "".to_string();
             };
+            ui.add_sized(
+                ui.available_size(),
+                TextEdit::singleline(&mut self.channel_input).hint_text("Search or add channels"),
+            );
         });
 
         if self.channels.is_empty() {
