@@ -1,13 +1,21 @@
 use crate::worker::{Channel, Item, ToApp, ToWorker, Worker, WorkerError};
+use copypasta::ClipboardProvider;
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
 use egui::{
     Align, Button, CentralPanel, CollapsingHeader, ComboBox, Context, Direction, Frame, Label,
-    Layout, Margin, RichText, ScrollArea, TextEdit, TopBottomPanel,
+    Layout, Margin, RichText, ScrollArea, Spinner, TextEdit, TopBottomPanel, Vec2,
 };
+use lazy_static::lazy_static;
+use theme::Theme;
 use tracing::error;
 
+mod theme;
 mod widgets;
+
+lazy_static! {
+    static ref THEME: Theme = Theme::default();
+}
 
 #[derive(Default, PartialEq)]
 enum Page {
@@ -48,6 +56,8 @@ struct WorkerStatus {
 impl TinyrssApp {
     pub fn new(cc: &CreationContext) -> Self {
         let mut app = Self::default();
+
+        app.configure_styles(&cc.egui_ctx);
 
         let (app_tx, app_rx) = crossbeam_channel::unbounded();
         let (worker_tx, worker_rx) = crossbeam_channel::unbounded();
@@ -103,40 +113,42 @@ impl eframe::App for TinyrssApp {
 
 impl TinyrssApp {
     fn render_header(&mut self, ctx: &Context) {
-        TopBottomPanel::top("header").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.page, Page::Feed, "Feed");
-                ui.selectable_value(&mut self.page, Page::Channels, "Channels");
-                ui.selectable_value(&mut self.page, Page::Settings, "Settings");
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if self.page == Page::Feed {
-                        if ui
-                            .add_enabled(!self.worker_status.updating_feed, Button::new("⟳"))
-                            .clicked()
-                        {
-                            self.update_feed();
-                        };
-                        ComboBox::from_id_source("feed_type_combo")
-                            .selected_text(match self.feed_type_combo {
-                                FeedTypeCombo::New => "New",
-                                FeedTypeCombo::Dismissed => "Dismissed",
-                            })
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    &mut self.feed_type_combo,
-                                    FeedTypeCombo::New,
-                                    "New",
-                                );
-                                ui.selectable_value(
-                                    &mut self.feed_type_combo,
-                                    FeedTypeCombo::Dismissed,
-                                    "Dismissed",
-                                );
-                            });
-                    }
+        TopBottomPanel::top("header")
+            .min_height(30.)
+            .show(ctx, |ui| {
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    ui.selectable_value(&mut self.page, Page::Feed, "Feed");
+                    ui.selectable_value(&mut self.page, Page::Channels, "Channels");
+                    ui.selectable_value(&mut self.page, Page::Settings, "Settings");
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if self.page == Page::Feed {
+                            if ui
+                                .add_enabled(!self.worker_status.updating_feed, Button::new("⟳"))
+                                .clicked()
+                            {
+                                self.update_feed();
+                            };
+                            ComboBox::from_id_source("feed_type_combo")
+                                .selected_text(match self.feed_type_combo {
+                                    FeedTypeCombo::New => "New",
+                                    FeedTypeCombo::Dismissed => "Dismissed",
+                                })
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut self.feed_type_combo,
+                                        FeedTypeCombo::New,
+                                        "New",
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.feed_type_combo,
+                                        FeedTypeCombo::Dismissed,
+                                        "Dismissed",
+                                    );
+                                });
+                        }
+                    });
                 });
             });
-        });
     }
 
     fn render_central_panel(&mut self, ctx: &Context) {
@@ -158,7 +170,7 @@ impl TinyrssApp {
             ui.with_layout(
                 Layout::centered_and_justified(Direction::LeftToRight),
                 |ui| {
-                    ui.spinner();
+                    ui.add(Spinner::new().size(24.0));
                 },
             );
         } else {
@@ -172,7 +184,7 @@ impl TinyrssApp {
                 return;
             }
 
-            const ITEMS_PER_PAGE: usize = 15;
+            const ITEMS_PER_PAGE: usize = 11;
 
             let from = self.feed_page * ITEMS_PER_PAGE;
             let to;
@@ -223,36 +235,43 @@ impl TinyrssApp {
                 ScrollArea::vertical().show(ui, |ui| {
                     for item in &filtered_items[from..to] {
                         widgets::feed_card(ui, self.sender.clone(), item);
+                        ui.add_space(THEME.spacing.medium);
                     }
                 });
             }
 
-            ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
-                ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(self.feed_page > 0, Button::new("<"))
-                        .clicked()
-                    {
-                        self.feed_page -= 1;
-                    }
-                    ui.label((self.feed_page + 1).to_string());
-                    if ui.add_enabled(!last_page, Button::new(">")).clicked() {
-                        self.feed_page += 1;
-                    }
-                });
-                if self.feed_type_combo == FeedTypeCombo::New {
-                    ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
-                        if ui.link("Dismiss all").clicked() {
-                            self.dismiss_all();
+            ui.horizontal_centered(|ui| {
+                ui.spacing_mut().button_padding = Vec2::new(10., 2.);
+                ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add_enabled(self.feed_page > 0, Button::new("<"))
+                            .clicked()
+                        {
+                            self.feed_page -= 1;
+                        }
+                        ui.label((self.feed_page + 1).to_string());
+                        if ui.add_enabled(!last_page, Button::new(">")).clicked() {
+                            self.feed_page += 1;
                         }
                     });
-                }
+                });
+                ui.with_layout(Layout::bottom_up(Align::RIGHT), |ui| {
+                    if self.feed_type_combo == FeedTypeCombo::New {
+                        ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
+                            if ui.link("Dismiss all").clicked() {
+                                self.dismiss_all();
+                            }
+                        });
+                    }
+                });
             });
         }
     }
 
     fn render_channels_page(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            ui.spacing_mut().button_padding = Vec2::new(6., 4.);
             if ui.button("Paste").clicked() {
                 let mut ctx = match copypasta::ClipboardContext::new() {
                     Ok(ctx) => ctx,
@@ -284,7 +303,9 @@ impl TinyrssApp {
             };
             ui.add_sized(
                 ui.available_size(),
-                TextEdit::singleline(&mut self.channel_input).hint_text("Search or add channels"),
+                TextEdit::singleline(&mut self.channel_input)
+                    .hint_text("Search or add channels")
+                    .margin(Vec2::new(6., 3.)),
             );
         });
 
@@ -293,6 +314,7 @@ impl TinyrssApp {
                 ui.label("You are not subscribed to any channels");
             });
         } else {
+            ui.add_space(THEME.spacing.medium);
             let search_result_exists = self.channels.iter().any(|channel| {
                 if let Some(title) = &channel.title {
                     return title
@@ -340,36 +362,42 @@ impl TinyrssApp {
 
     fn render_footer(&mut self, ctx: &Context) {
         if self.worker_status.worker_errors.len() > 0 {
-            TopBottomPanel::bottom("footer").show(ctx, |ui| {
-                self.worker_status.worker_errors.retain(|error| {
-                    let mut retain = true;
+            TopBottomPanel::bottom("footer")
+                .frame(Frame {
+                    fill: THEME.colors.bg_darker,
+                    inner_margin: Margin::same(6.0),
+                    ..Default::default()
+                })
+                .show(ctx, |ui| {
+                    self.worker_status.worker_errors.retain(|error| {
+                        let mut retain = true;
 
-                    Frame {
-                        fill: egui::Color32::from_rgb(200, 0, 0),
-                        inner_margin: Margin::same(4.0),
-                        rounding: egui::Rounding::same(4.0),
-                        ..Default::default()
-                    }
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.add(
-                                Label::new(format!(
-                                    "{}: {}",
-                                    error.description, error.error_message
-                                ))
-                                .wrap(true),
-                            );
-                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                if ui.button("Close").clicked() {
-                                    retain = false;
-                                }
+                        Frame {
+                            fill: THEME.colors.warning,
+                            inner_margin: Margin::same(6.0),
+                            rounding: THEME.rounding.medium,
+                            ..Default::default()
+                        }
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.add(
+                                    Label::new(format!(
+                                        "{}: {}",
+                                        error.description, error.error_message
+                                    ))
+                                    .wrap(true),
+                                );
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    if ui.button("Close").clicked() {
+                                        retain = false;
+                                    }
+                                });
                             });
                         });
-                    });
 
-                    retain
+                        retain
+                    });
                 });
-            });
         }
     }
 }
@@ -394,5 +422,36 @@ impl TinyrssApp {
         if let Some(sender) = &self.sender {
             sender.send(ToWorker::DismissAll).unwrap();
         }
+    }
+}
+
+impl TinyrssApp {
+    fn configure_styles(&mut self, ctx: &egui::Context) {
+        use egui::style::{DebugOptions, TextStyle};
+        use egui::FontFamily::{Monospace, Proportional};
+        use egui::{FontId, Style};
+
+        let style = Style {
+            visuals: THEME.visuals.clone(),
+            text_styles: [
+                (TextStyle::Small, FontId::new(8.0, Proportional)),
+                (TextStyle::Body, FontId::new(16.0, Proportional)),
+                (TextStyle::Monospace, FontId::new(12.0, Monospace)),
+                (TextStyle::Button, FontId::new(14.0, Proportional)),
+                (TextStyle::Heading, FontId::new(22.0, Proportional)),
+            ]
+            .into(),
+            debug: DebugOptions {
+                debug_on_hover: false,
+                show_expand_width: false,
+                show_expand_height: false,
+                show_resize: false,
+                show_interactive_widgets: false,
+                show_blocking_widget: false,
+            },
+            ..Style::default()
+        };
+
+        ctx.set_style(style);
     }
 }

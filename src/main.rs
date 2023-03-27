@@ -12,7 +12,7 @@ fn main() -> eframe::Result<()> {
         centered: true,
         resizable: false,
         always_on_top: true,
-        initial_window_size: Some(egui::vec2(500.0, 800.0)),
+        initial_window_size: Some(egui::vec2(540.0, 800.0)),
         ..eframe::NativeOptions::default()
     };
 

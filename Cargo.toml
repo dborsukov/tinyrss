@@ -12,6 +12,7 @@ dirs = "5.0"
 eframe = "0.21.0"
 egui = "0.21.0"
 feed-rs = "1.3.0"
+lazy_static = "1.4.0"
 opml = "1.1.5"
 parking_lot = "0.12.1"
 reqwest = { version = "0.11.14" }

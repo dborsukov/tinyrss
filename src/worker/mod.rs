@@ -48,7 +48,7 @@ impl Worker {
 
                                 self.update_channel_list().await;
 
-                                self.parse_channels().await;
+                                // self.parse_channels().await;
 
                                 self.update_feed().await;
                             }

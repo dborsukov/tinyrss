@@ -1,8 +1,12 @@
+use super::THEME;
 use crate::worker::{Channel, Item, ToWorker};
 use chrono::{Duration, Local, TimeZone, Utc};
 use crossbeam_channel::Sender;
 use eframe::epaint::text::{LayoutJob, TextWrapping};
-use egui::{Align, CollapsingHeader, Frame, Hyperlink, Label, Layout, RichText, TextFormat};
+use egui::{
+    Align, Button, CollapsingHeader, FontId, Frame, Hyperlink, Label, Layout, RichText, TextFormat,
+    Vec2,
+};
 use unicode_truncate::UnicodeTruncateStr;
 
 pub fn truncate(string: &str, width: usize, trim_char: Option<&str>) -> String {
@@ -65,28 +69,27 @@ pub fn channel_card(
     }
     if show {
         Frame {
-            fill: egui::Color32::from_rgb(0, 50, 0),
-            inner_margin: egui::Margin::same(4.0),
+            fill: THEME.colors.bg,
+            rounding: THEME.rounding.large,
+            inner_margin: egui::Margin::same(6.0),
             ..Default::default()
         }
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             if let Some(title) = &channel.title {
-                CollapsingHeader::new(RichText::new(truncate(title, 55, None)).strong().heading())
+                CollapsingHeader::new(RichText::new(truncate(title, 40, None)).strong().heading())
                     .default_open(false)
                     .show(ui, |ui| {
+                        ui.spacing_mut().button_padding = Vec2::new(6., 3.);
+                        ui.add_space(THEME.spacing.small);
                         if let Some(description) = &channel.description {
-                            ui.horizontal(|ui| {
-                                ui.label("Description:");
-                                ui.add(Label::new(description).wrap(true));
-                            });
-                        } else {
-                            ui.horizontal(|ui| {
-                                ui.label("Description:");
-                                ui.label("none");
-                            });
+                            ui.add(Label::new(RichText::new(description)).wrap(true));
+                            ui.add_space(THEME.spacing.medium);
                         }
-                        if ui.button("Unsubscribe").clicked() {
+                        if ui
+                            .add(Button::new("Unsubscribe").fill(THEME.colors.warning))
+                            .clicked()
+                        {
                             if let Some(sender) = sender {
                                 sender
                                     .send(ToWorker::Unsubscribe {
@@ -105,14 +108,21 @@ pub fn channel_card(
 
 pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Item) {
     Frame {
-        fill: egui::Color32::from_rgb(0, 50, 0),
-        inner_margin: egui::Margin::same(4.0),
+        fill: THEME.colors.bg,
+        rounding: THEME.rounding.large,
+        inner_margin: egui::Margin::same(6.0),
         ..Default::default()
     }
     .show(ui, |ui| {
         ui.set_width(ui.available_width());
         if let Some(title) = &item.title {
-            let mut job = LayoutJob::single_section(title.to_string(), TextFormat::default());
+            let mut job = LayoutJob::single_section(
+                title.to_string(),
+                TextFormat {
+                    font_id: FontId::proportional(22.0),
+                    ..Default::default()
+                },
+            );
             job.wrap = TextWrapping {
                 max_rows: 1,
                 break_anywhere: true,
@@ -125,9 +135,9 @@ pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Ite
         }
         ui.horizontal(|ui| {
             ui.label(timestamp_to_human_readable(item.published));
-            ui.add_space(5.);
+            ui.label("·");
             if let Some(channel_title) = &item.channel_title {
-                ui.label(truncate(channel_title, 25, None));
+                ui.label(truncate(channel_title, 30, None));
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if item.dismissed {
