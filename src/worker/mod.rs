@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use bytes::Bytes;
+pub use config::{ConfigBuilder, CONFIG};
 use crossbeam_channel::{Receiver, Sender};
 pub use db::{Channel, Item};
 use feed_rs::model::Feed;
@@ -8,8 +7,10 @@ use futures::{stream, StreamExt};
 pub use messages::{ToApp, ToWorker, WorkerError};
 use parking_lot::{Mutex, Once};
 use reqwest::Client;
+use std::sync::Arc;
 use tracing::{error, info};
 
+mod config;
 mod db;
 mod messages;
 mod utils;
@@ -61,6 +62,11 @@ impl Worker {
                                 self.update_feed().await;
                             }
                             ToWorker::Shutdown => {
+                                info!("Saving config.");
+                                if let Err(err) = ConfigBuilder::from_current().save() {
+                                    error!("Failed to save config: {}", err.to_string());
+                                };
+                                info!("Shutting down.");
                                 std::process::exit(0);
                             }
                             ToWorker::UpdateFeed => {
