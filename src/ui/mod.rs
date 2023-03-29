@@ -439,25 +439,26 @@ impl TinyrssApp {
             .show(ui, |ui| {
                 ui.add_space(THEME.spacing.large);
                 ui.horizontal(|ui| {
-                    ui.label("Show search in feed");
+                    ui.label("Auto dismiss");
+                    ui.label(RichText::new("(?)").color(THEME.colors.text_dim).monospace()).on_hover_text("Dismiss items just by opening them.");
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui
-                            .checkbox(&mut CONFIG.lock().show_search_in_feed, "")
+                            .checkbox(&mut CONFIG.lock().auto_dismiss_on_open, "")
                             .changed()
                         {
-                            self.feed_input = String::new();
                             ConfigBuilder::from_current().apply();
                         };
                     });
                 });
                 ui.add_space(THEME.spacing.large);
                 ui.horizontal(|ui| {
-                    ui.label("Automatically dismiss opened items");
+                    ui.label("Show feed search");
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui
-                            .checkbox(&mut CONFIG.lock().auto_dismiss_on_open, "")
+                            .checkbox(&mut CONFIG.lock().show_search_in_feed, "")
                             .changed()
                         {
+                            self.feed_input = String::new();
                             ConfigBuilder::from_current().apply();
                         };
                     });
