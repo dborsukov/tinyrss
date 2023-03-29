@@ -144,7 +144,7 @@ pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Ite
             ui.label(timestamp_to_human_readable(item.published));
             ui.label("·");
             if let Some(channel_title) = &item.channel_title {
-                ui.label(truncate(channel_title, 30, None));
+                ui.label(truncate(channel_title, 40, None));
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if item.dismissed {
