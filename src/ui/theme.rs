@@ -8,6 +8,7 @@ use eframe::{
 
 pub struct Colors {
     pub text: Color32,
+    pub text_dim: Color32,
     pub accent: Color32,
     pub accent_light: Color32,
     pub bg: Color32,
@@ -20,6 +21,7 @@ impl Default for Colors {
     fn default() -> Self {
         Self {
             text: Color32::from_rgb(235, 232, 224),
+            text_dim: Color32::from_white_alpha(30),
             accent: Color32::from_rgb(162, 123, 92),
             accent_light: Color32::from_rgb(220, 215, 201),
             bg: Color32::from_rgb(63, 78, 79),

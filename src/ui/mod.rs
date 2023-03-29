@@ -411,6 +411,7 @@ impl TinyrssApp {
                 ui.add_space(THEME.spacing.large);
                 ui.horizontal(|ui| {
                     ui.label("Concurent requests");
+                    ui.label(RichText::new("(?)").color(THEME.colors.text_dim).monospace()).on_hover_text("Amount of network requests that will happen at the same time.\nHigher amount may lead to faster load times.");
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui
                             .add(egui::Slider::new(
