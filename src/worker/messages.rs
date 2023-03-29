@@ -6,6 +6,7 @@ pub enum ToApp {
     WorkerError { error: WorkerError },
     UpdateFeed { items: Vec<db::Item> },
     FeedUpdateProgress { progress: f32 },
+    ImportProgress { progress: f32 },
     UpdateChannels { channels: Vec<db::Channel> },
 }
 

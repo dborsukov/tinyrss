@@ -51,6 +51,8 @@ pub struct TinyrssApp {
 struct WorkerStatus {
     updating_feed: bool,
     update_progress: f32,
+    importing_channels: bool,
+    import_progress: f32,
     worker_errors: Vec<WorkerError>,
 }
 
@@ -102,7 +104,12 @@ impl eframe::App for TinyrssApp {
                         self.worker_status.worker_errors.push(error);
                     }
                     ToApp::UpdateChannels { channels } => {
+                        self.worker_status.importing_channels = false;
+                        self.worker_status.import_progress = 0.0;
                         self.channels = channels;
+                    }
+                    ToApp::ImportProgress { progress } => {
+                        self.worker_status.import_progress = progress;
                     }
                 }
             }
@@ -385,11 +392,25 @@ impl TinyrssApp {
     }
 
     fn render_settings_page(&mut self, ctx: &Context, ui: &mut egui::Ui) {
-        ScrollArea::vertical().show(ui, |ui| {
-            self.render_general_settings(ctx, ui);
-            ui.add_space(THEME.spacing.large);
-            self.render_channels_settings(ctx, ui);
-        });
+        if self.worker_status.importing_channels {
+            ui.with_layout(
+                Layout::centered_and_justified(Direction::LeftToRight),
+                |ui| {
+                    ui.add(
+                        ProgressBar::new(self.worker_status.import_progress)
+                            .desired_width(300.0)
+                            .text("Import in progress...")
+                            .animate(true),
+                    )
+                },
+            );
+        } else {
+            ScrollArea::vertical().show(ui, |ui| {
+                self.render_general_settings(ctx, ui);
+                ui.add_space(THEME.spacing.large);
+                self.render_channels_settings(ctx, ui);
+            });
+        }
     }
 
     fn render_general_settings(&mut self, _ctx: &Context, ui: &mut egui::Ui) {
@@ -441,6 +462,7 @@ impl TinyrssApp {
                                 let path = rfd::FileDialog::new()
                                     .add_filter("OPML", &["xml"])
                                     .pick_file();
+                                self.worker_status.importing_channels = true;
                                 sender.send(ToWorker::ImportChannels { path }).unwrap();
                             }
                         }

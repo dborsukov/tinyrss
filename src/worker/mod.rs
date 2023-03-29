@@ -149,6 +149,8 @@ impl Worker {
     async fn add_channels(&mut self, links: Vec<String>) {
         let client = Client::new();
 
+        let channels_total = links.len() as f32;
+
         struct LinkBytesBinding {
             link: String,
             bytes: Option<Bytes>,
@@ -189,8 +191,19 @@ impl Worker {
 
         let mut bindings: Vec<LinkFeedBinding> = vec![];
 
+        let processed_channels: Arc<Mutex<f32>> = Arc::new(Mutex::new(0.0));
+
         bindings = results
             .fold(bindings, |mut bindings, r| async {
+                let sender = self.sender.clone();
+                let processed_arc = Arc::clone(&processed_channels);
+                let mut processed = processed_arc.lock();
+                *processed += 1.0;
+                sender
+                    .send(ToApp::ImportProgress {
+                        progress: *processed / channels_total,
+                    })
+                    .unwrap();
                 match r.bytes {
                     Some(bytes) => {
                         let feed = if let Ok(feed) = feed_rs::parser::parse(&bytes[..]) {
