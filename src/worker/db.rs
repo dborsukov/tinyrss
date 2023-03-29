@@ -81,10 +81,11 @@ pub async fn add_channels(channels: Vec<Channel>) -> Result<()> {
 pub async fn get_all_channels() -> Result<Vec<Channel>> {
     let mut conn = establish_connection().await?;
 
-    let channels =
-        query_as::<_, Channel>("SELECT id, kind, link, title, description FROM channels")
-            .fetch_all(&mut conn)
-            .await?;
+    let channels = query_as::<_, Channel>(
+        "SELECT id, kind, link, title, description FROM channels ORDER BY title",
+    )
+    .fetch_all(&mut conn)
+    .await?;
 
     Ok(channels)
 }
