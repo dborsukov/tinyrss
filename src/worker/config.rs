@@ -12,6 +12,7 @@ lazy_static! {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ConfigBuilder {
+    pub show_search_in_feed: bool,
     pub auto_dismiss_on_open: bool,
     pub max_allowed_concurent_requests: usize,
 }
@@ -19,6 +20,7 @@ pub struct ConfigBuilder {
 impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
+            show_search_in_feed: false,
             auto_dismiss_on_open: false,
             max_allowed_concurent_requests: 5,
         }

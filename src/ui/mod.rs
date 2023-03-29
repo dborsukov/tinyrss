@@ -37,6 +37,7 @@ pub struct TinyrssApp {
     page: Page,
     feed_page: usize,
     channel_input: String,
+    feed_input: String,
     feed_type_combo: FeedTypeCombo,
 
     channels: Vec<Channel>,
@@ -163,6 +164,11 @@ impl TinyrssApp {
                                         "Dismissed",
                                     );
                                 });
+                            if CONFIG.lock().show_search_in_feed {
+                                ui.add(
+                                    TextEdit::singleline(&mut self.feed_input).hint_text("Search"),
+                                );
+                            }
                         }
                     });
                 });
@@ -220,6 +226,13 @@ impl TinyrssApp {
                         .feed_items
                         .iter()
                         .filter(|item| !item.dismissed)
+                        .filter(|item| {
+                            item.title
+                                .clone()
+                                .unwrap()
+                                .to_lowercase()
+                                .contains(self.feed_input.to_lowercase().as_str())
+                        })
                         .collect();
                 }
                 FeedTypeCombo::Dismissed => {
@@ -227,6 +240,13 @@ impl TinyrssApp {
                         .feed_items
                         .iter()
                         .filter(|item| item.dismissed)
+                        .filter(|item| {
+                            item.title
+                                .clone()
+                                .unwrap()
+                                .to_lowercase()
+                                .contains(self.feed_input.to_lowercase().as_str())
+                        })
                         .collect();
                 }
             }
@@ -417,6 +437,19 @@ impl TinyrssApp {
         CollapsingHeader::new(RichText::new("General").strong().heading())
             .default_open(true)
             .show(ui, |ui| {
+                ui.add_space(THEME.spacing.large);
+                ui.horizontal(|ui| {
+                    ui.label("Show search in feed");
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui
+                            .checkbox(&mut CONFIG.lock().show_search_in_feed, "")
+                            .changed()
+                        {
+                            self.feed_input = String::new();
+                            ConfigBuilder::from_current().apply();
+                        };
+                    });
+                });
                 ui.add_space(THEME.spacing.large);
                 ui.horizontal(|ui| {
                     ui.label("Automatically dismiss opened items");
