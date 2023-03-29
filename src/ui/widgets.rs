@@ -1,5 +1,5 @@
 use super::THEME;
-use crate::worker::{Channel, Item, ToWorker};
+use crate::worker::{Channel, Item, ToWorker, CONFIG};
 use chrono::{Duration, Local, TimeZone, Utc};
 use crossbeam_channel::Sender;
 use eframe::epaint::text::{LayoutJob, TextWrapping};
@@ -129,7 +129,14 @@ pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Ite
                 overflow_character: Some('…'),
                 ..Default::default()
             };
-            ui.add(Hyperlink::from_label_and_url(job, &item.link));
+            if ui
+                .add(Hyperlink::from_label_and_url(job, &item.link))
+                .clicked()
+            {
+                if CONFIG.lock().auto_dismiss_on_open && !item.dismissed {
+                    dismisss(item, &sender);
+                }
+            };
         } else {
             ui.add(Label::new(RichText::new("<no title>")));
         }
@@ -142,28 +149,23 @@ pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Ite
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if item.dismissed {
                     if ui.link("Restore").clicked() {
-                        if let Some(sender) = sender {
-                            sender
-                                .send(ToWorker::SetDismissed {
-                                    id: item.id.clone(),
-                                    dismissed: false,
-                                })
-                                .unwrap();
-                        }
+                        dismisss(item, &sender);
                     }
                 } else {
-                    if ui.link("Dismiss").clicked() {
-                        if let Some(sender) = sender {
-                            sender
-                                .send(ToWorker::SetDismissed {
-                                    id: item.id.clone(),
-                                    dismissed: true,
-                                })
-                                .unwrap();
-                        }
-                    }
+                    if ui.link("Dismiss").clicked() {}
                 }
             });
         });
     });
+
+    fn dismisss(item: &Item, sender: &Option<Sender<ToWorker>>) {
+        if let Some(sender) = sender {
+            sender
+                .send(ToWorker::SetDismissed {
+                    id: item.id.clone(),
+                    dismissed: true,
+                })
+                .unwrap();
+        }
+    }
 }

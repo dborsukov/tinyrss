@@ -11,11 +11,15 @@ lazy_static! {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ConfigBuilder {}
+pub struct ConfigBuilder {
+    pub auto_dismiss_on_open: bool,
+}
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
-        Self {}
+        Self {
+            auto_dismiss_on_open: false,
+        }
     }
 }
 

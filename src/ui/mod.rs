@@ -1,4 +1,4 @@
-use crate::worker::{Channel, Item, ToApp, ToWorker, Worker, WorkerError};
+use crate::worker::{Channel, ConfigBuilder, Item, ToApp, ToWorker, Worker, WorkerError, CONFIG};
 use copypasta::ClipboardProvider;
 use crossbeam_channel::{Receiver, Sender};
 use eframe::CreationContext;
@@ -385,6 +385,30 @@ impl TinyrssApp {
     }
 
     fn render_settings_page(&mut self, ctx: &Context, ui: &mut egui::Ui) {
+        ScrollArea::vertical().show(ui, |ui| {
+            self.render_general_settings(ctx, ui);
+            ui.add_space(THEME.spacing.large);
+            self.render_channels_settings(ctx, ui);
+        });
+    }
+
+    fn render_general_settings(&mut self, _ctx: &Context, ui: &mut egui::Ui) {
+        CollapsingHeader::new(RichText::new("General").strong().heading())
+            .default_open(true)
+            .show(ui, |ui| {
+                if ui
+                    .checkbox(
+                        &mut CONFIG.lock().auto_dismiss_on_open,
+                        "Automatically dismiss opened items",
+                    )
+                    .changed()
+                {
+                    ConfigBuilder::from_current().apply();
+                };
+            });
+    }
+
+    fn render_channels_settings(&mut self, ctx: &Context, ui: &mut egui::Ui) {
         CollapsingHeader::new(RichText::new("Channels").strong().heading())
             .default_open(true)
             .show(ui, |ui| {
