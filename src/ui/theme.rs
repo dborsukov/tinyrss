@@ -85,7 +85,7 @@ impl Default for Theme {
                 expansion: 0.0,
             },
             inactive: WidgetVisuals {
-                bg_fill: colors.accent,
+                bg_fill: colors.bg,
                 weak_bg_fill: colors.bg,
                 bg_stroke: Stroke::default(),
                 fg_stroke: Stroke::new(1.0, colors.text),
