@@ -13,12 +13,14 @@ lazy_static! {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ConfigBuilder {
     pub auto_dismiss_on_open: bool,
+    pub max_allowed_concurent_requests: usize,
 }
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
             auto_dismiss_on_open: false,
+            max_allowed_concurent_requests: 5,
         }
     }
 }

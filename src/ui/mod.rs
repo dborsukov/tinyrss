@@ -396,15 +396,33 @@ impl TinyrssApp {
         CollapsingHeader::new(RichText::new("General").strong().heading())
             .default_open(true)
             .show(ui, |ui| {
-                if ui
-                    .checkbox(
-                        &mut CONFIG.lock().auto_dismiss_on_open,
-                        "Automatically dismiss opened items",
-                    )
-                    .changed()
-                {
-                    ConfigBuilder::from_current().apply();
-                };
+                ui.add_space(THEME.spacing.large);
+                ui.horizontal(|ui| {
+                    ui.label("Automatically dismiss opened items");
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui
+                            .checkbox(&mut CONFIG.lock().auto_dismiss_on_open, "")
+                            .changed()
+                        {
+                            ConfigBuilder::from_current().apply();
+                        };
+                    });
+                });
+                ui.add_space(THEME.spacing.large);
+                ui.horizontal(|ui| {
+                    ui.label("Concurent requests");
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui
+                            .add(egui::Slider::new(
+                                &mut CONFIG.lock().max_allowed_concurent_requests,
+                                1..=10,
+                            ))
+                            .changed()
+                        {
+                            ConfigBuilder::from_current().apply();
+                        };
+                    });
+                });
             });
     }
 

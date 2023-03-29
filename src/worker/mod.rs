@@ -16,7 +16,6 @@ mod messages;
 mod utils;
 
 static CHANNEL_CLOSED: Once = Once::new();
-static CONCURRENT_REQUESTS: usize = 5;
 
 #[derive(Debug)]
 struct FeedParsingError;
@@ -181,7 +180,7 @@ impl Worker {
                     }
                 }
             })
-            .buffer_unordered(CONCURRENT_REQUESTS);
+            .buffer_unordered(CONFIG.lock().max_allowed_concurent_requests);
 
         struct LinkFeedBinding {
             link: String,
@@ -321,7 +320,7 @@ impl Worker {
                     }
                 }
             })
-            .buffer_unordered(CONCURRENT_REQUESTS);
+            .buffer_unordered(CONFIG.lock().max_allowed_concurent_requests);
 
         struct ChannelFeedBinding {
             channel: Channel,
