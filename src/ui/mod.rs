@@ -7,14 +7,14 @@ use egui::{
     Layout, Margin, ProgressBar, RichText, ScrollArea, TextEdit, TopBottomPanel, Vec2,
 };
 use lazy_static::lazy_static;
-use theme::Theme;
+use theme::{Colors, Theme};
 use tracing::error;
 
 mod theme;
 mod widgets;
 
 lazy_static! {
-    static ref THEME: Theme = Theme::default();
+    static ref THEME: Theme = Theme::from_colors(Colors::dark());
 }
 
 #[derive(Default, PartialEq)]

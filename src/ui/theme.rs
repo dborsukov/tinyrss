@@ -6,32 +6,6 @@ use eframe::{
     epaint::Shadow,
 };
 
-pub struct Colors {
-    pub text: Color32,
-    pub text_dim: Color32,
-    pub accent: Color32,
-    pub accent_light: Color32,
-    pub bg: Color32,
-    pub bg_darker: Color32,
-    pub bg_darkest: Color32,
-    pub warning: Color32,
-}
-
-impl Default for Colors {
-    fn default() -> Self {
-        Self {
-            text: Color32::from_rgb(235, 232, 224),
-            text_dim: Color32::from_white_alpha(30),
-            accent: Color32::from_rgb(162, 123, 92),
-            accent_light: Color32::from_rgb(220, 215, 201),
-            bg: Color32::from_rgb(63, 78, 79),
-            bg_darker: Color32::from_rgb(44, 54, 57),
-            bg_darkest: Color32::from_rgb(18, 22, 23),
-            warning: Color32::from_rgb(183, 62, 62),
-        }
-    }
-}
-
 pub struct Spacing {
     pub large: f32,
     pub medium: f32,
@@ -62,6 +36,32 @@ impl Default for RoundingVar {
     }
 }
 
+pub struct Colors {
+    pub text: Color32,
+    pub text_dim: Color32,
+    pub accent: Color32,
+    pub accent_light: Color32,
+    pub bg: Color32,
+    pub bg_darker: Color32,
+    pub bg_darkest: Color32,
+    pub warning: Color32,
+}
+
+impl Colors {
+    pub fn dark() -> Self {
+        Self {
+            text: Color32::from_rgb(235, 232, 224),
+            text_dim: Color32::from_white_alpha(30),
+            accent: Color32::from_rgb(162, 123, 92),
+            accent_light: Color32::from_rgb(220, 215, 201),
+            bg: Color32::from_rgb(63, 78, 79),
+            bg_darker: Color32::from_rgb(44, 54, 57),
+            bg_darkest: Color32::from_rgb(18, 22, 23),
+            warning: Color32::from_rgb(183, 62, 62),
+        }
+    }
+}
+
 pub struct Theme {
     pub colors: Colors,
     pub visuals: Visuals,
@@ -69,9 +69,8 @@ pub struct Theme {
     pub rounding: RoundingVar,
 }
 
-impl Default for Theme {
-    fn default() -> Self {
-        let colors = Colors::default();
+impl Theme {
+    pub fn from_colors(colors: Colors) -> Self {
         let spacing = Spacing::default();
         let rounding = RoundingVar::default();
 
@@ -124,8 +123,6 @@ impl Default for Theme {
         };
 
         let visuals = Visuals {
-            dark_mode: true,
-
             widgets,
             selection,
 
