@@ -149,10 +149,19 @@ pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Ite
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if item.dismissed {
                     if ui.link("Restore").clicked() {
-                        dismisss(item, &sender);
+                        if let Some(sender) = sender {
+                            sender
+                                .send(ToWorker::SetDismissed {
+                                    id: item.id.clone(),
+                                    dismissed: false,
+                                })
+                                .unwrap();
+                        }
                     }
                 } else {
-                    if ui.link("Dismiss").clicked() {}
+                    if ui.link("Dismiss").clicked() {
+                        dismisss(item, &sender);
+                    }
                 }
             });
         });
