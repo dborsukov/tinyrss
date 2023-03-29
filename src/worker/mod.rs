@@ -7,7 +7,7 @@ use futures::{stream, StreamExt};
 pub use messages::{ToApp, ToWorker, WorkerError};
 use parking_lot::{Mutex, Once};
 use reqwest::Client;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use tracing::{error, info};
 
 mod config;
@@ -100,8 +100,8 @@ impl Worker {
 
                                 self.update_feed().await;
                             }
-                            ToWorker::ImportChannels => {
-                                self.import_channels().await;
+                            ToWorker::ImportChannels { path } => {
+                                self.import_channels(path).await;
 
                                 self.update_channel_list().await;
                             }
@@ -452,13 +452,9 @@ impl Worker {
         }
     }
 
-    async fn import_channels(&mut self) {
-        let file_handle = rfd::AsyncFileDialog::new()
-            .add_filter("OPML", &["xml"])
-            .pick_file()
-            .await;
-        if let Some(file_handle) = file_handle {
-            let xml = match std::fs::read_to_string(file_handle.path()) {
+    async fn import_channels(&mut self, path: Option<PathBuf>) {
+        if let Some(file_handle) = path {
+            let xml = match std::fs::read_to_string(file_handle) {
                 Ok(string) => string,
                 Err(err) => {
                     self.report_error("Failed to read file", err.to_string());

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::worker::db;
 
 pub enum ToApp {
@@ -16,7 +18,7 @@ pub enum ToWorker {
     SetDismissed { id: String, dismissed: bool },
     DismissAll,
     Unsubscribe { id: String },
-    ImportChannels,
+    ImportChannels { path: Option<PathBuf> },
     ExportChannels,
 }
 

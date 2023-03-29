@@ -438,7 +438,10 @@ impl TinyrssApp {
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui.button("Import").clicked() {
                             if let Some(sender) = &self.sender {
-                                sender.send(ToWorker::ImportChannels).unwrap();
+                                let path = rfd::FileDialog::new()
+                                    .add_filter("OPML", &["xml"])
+                                    .pick_file();
+                                sender.send(ToWorker::ImportChannels { path }).unwrap();
                             }
                         }
                         if ui.button("Export").clicked() {
