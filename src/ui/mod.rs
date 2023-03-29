@@ -153,21 +153,37 @@ impl TinyrssApp {
                                     FeedTypeCombo::Dismissed => "Dismissed",
                                 })
                                 .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut self.feed_type_combo,
-                                        FeedTypeCombo::New,
-                                        "New",
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.feed_type_combo,
-                                        FeedTypeCombo::Dismissed,
-                                        "Dismissed",
-                                    );
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.feed_type_combo,
+                                            FeedTypeCombo::New,
+                                            "New",
+                                        )
+                                        .changed()
+                                    {
+                                        self.feed_page = 0;
+                                    };
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.feed_type_combo,
+                                            FeedTypeCombo::Dismissed,
+                                            "Dismissed",
+                                        )
+                                        .changed()
+                                    {
+                                        self.feed_page = 0;
+                                    };
                                 });
                             if CONFIG.lock().show_search_in_feed {
-                                ui.add(
-                                    TextEdit::singleline(&mut self.feed_input).hint_text("Search"),
-                                );
+                                if ui
+                                    .add(
+                                        TextEdit::singleline(&mut self.feed_input)
+                                            .hint_text("Search"),
+                                    )
+                                    .changed()
+                                {
+                                    self.feed_page = 0;
+                                };
                             }
                         }
                     });
