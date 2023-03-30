@@ -36,7 +36,7 @@ fn main() -> eframe::Result<()> {
 }
 
 fn load_icon() -> eframe::IconData {
-    let image_bytes = include_bytes!("../icon.png");
+    let image_bytes = include_bytes!("../icons/icon.png");
     let image = image::load_from_memory(image_bytes).unwrap();
     let image_buffer = image.to_rgba8();
     let pixels = image_buffer.as_raw().clone();

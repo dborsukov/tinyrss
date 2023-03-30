@@ -28,3 +28,6 @@ tokio = { version = "1.17.0", features = ["rt", "rt-multi-thread"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 unicode-truncate = "0.2.0"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.12"
