@@ -1,7 +1,14 @@
 [package]
 name = "tinyrss"
-version = "0.1.0"
+version = "1.0.0"
+authors = ["Denis Borsukov"]
 edition = "2021"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/dbsdm/tinyrss"
+description = "Small and simple RSS aggregator"
+categories = ["gui", "rss"]
+keywords = ["news", "feed", "rss", "aggregator", "reader"]
 
 [dependencies]
 async-recursion = "1.0.4"
