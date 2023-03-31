@@ -25,7 +25,7 @@ fn main() -> eframe::Result<()> {
         always_on_top: false,
         #[cfg(not(unix))]
         icon_data: Some(load_icon()),
-        initial_window_size: Some(egui::vec2(540.0, 800.0)),
+        initial_window_size: Some(egui::vec2(540.0, 730.0)),
         ..eframe::NativeOptions::default()
     };
 

@@ -228,7 +228,7 @@ impl TinyrssApp {
                 return;
             }
 
-            const ITEMS_PER_PAGE: usize = 11;
+            const ITEMS_PER_PAGE: usize = 10;
 
             let from = self.feed_page * ITEMS_PER_PAGE;
             let to;
