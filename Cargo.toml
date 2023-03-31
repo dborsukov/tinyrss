@@ -9,6 +9,7 @@ homepage = "https://github.com/dbsdm/tinyrss"
 description = "Small and simple RSS aggregator"
 categories = ["gui", "rss"]
 keywords = ["news", "feed", "rss", "aggregator", "reader"]
+exclude = ["/wix"]
 
 [dependencies]
 async-recursion = "1.0.4"
