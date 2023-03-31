@@ -19,9 +19,9 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
+          - ubuntu-20.04
+          - macos-11
+          - windows-2019
     runs-on: ${{ matrix.os }}
     steps:
       - name: Download dependencies
