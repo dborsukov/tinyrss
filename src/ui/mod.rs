@@ -510,7 +510,7 @@ impl TinyrssApp {
                         if ui.button("Import").clicked() {
                             if let Some(sender) = &self.sender {
                                 let path = rfd::FileDialog::new()
-                                    .add_filter("OPML", &["xml"])
+                                    .add_filter("OPML", &["xml", "opml"])
                                     .pick_file();
                                 self.worker_status.importing_channels = true;
                                 sender.send(ToWorker::ImportChannels { path }).unwrap();
