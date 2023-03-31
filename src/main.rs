@@ -23,6 +23,7 @@ fn main() -> eframe::Result<()> {
         centered: true,
         resizable: false,
         always_on_top: false,
+        #[cfg(not(unix))]
         icon_data: Some(load_icon()),
         initial_window_size: Some(egui::vec2(540.0, 800.0)),
         ..eframe::NativeOptions::default()
