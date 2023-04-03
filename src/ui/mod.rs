@@ -643,15 +643,16 @@ impl TinyrssApp {
                         }
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
+                                let mut message = String::new();
+                                if !error.error_message.is_empty() {
+                                    message = format!(": {}", error.error_message);
+                                }
                                 ui.add(
-                                    Label::new(format!(
-                                        "{}: {}",
-                                        error.description, error.error_message
-                                    ))
-                                    .wrap(true),
+                                    Label::new(format!("{}{}", error.description, message))
+                                        .wrap(true),
                                 );
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                    if ui.button("Close").clicked() {
+                                    if ui.button("🗙").clicked() {
                                         retain = false;
                                     }
                                 });
