@@ -147,6 +147,11 @@ impl Worker {
     }
 
     async fn add_channels(&mut self, links: Vec<String>) {
+        if !utils::is_online().await {
+            self.report_error("No internet connection", "");
+            return;
+        }
+
         let client = Client::new();
 
         let channels_total = links.len() as f32;
@@ -282,6 +287,11 @@ impl Worker {
     }
 
     async fn parse_channels(&mut self) {
+        if !utils::is_online().await {
+            self.report_error("No internet connection", "");
+            return;
+        }
+
         let channels = match db::get_all_channels().await {
             Ok(channels) => channels,
             Err(err) => {
@@ -467,6 +477,11 @@ impl Worker {
 
     async fn import_channels(&mut self, path: Option<PathBuf>) {
         if let Some(file_handle) = path {
+            if !utils::is_online().await {
+                self.report_error("No internet connection", "");
+                return;
+            }
+
             let xml = match std::fs::read_to_string(file_handle) {
                 Ok(string) => string,
                 Err(err) => {
