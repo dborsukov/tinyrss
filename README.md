@@ -5,9 +5,9 @@
 </div>
 
 <p align="middle">
-  <img src="screenshots/1.png" width="310" />
+  <img src=".github/resources/1.png" width="310" />
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="screenshots/2.png" width="310" /> 
+  <img src=".github/resources/2.png" width="310" /> 
 </p>
 
 # Install
