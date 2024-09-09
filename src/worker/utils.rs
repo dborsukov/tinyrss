@@ -8,7 +8,7 @@ pub fn get_app_dir() -> std::path::PathBuf {
 pub async fn is_online() -> bool {
     const ADDRS: [&str; 2] = ["clients3.google.com:80", "detectportal.firefox.com:80"];
     for addr in ADDRS {
-        if let Ok(_) = TcpStream::connect(addr).await {
+        if (TcpStream::connect(addr).await).is_ok() {
             return true;
         }
     }

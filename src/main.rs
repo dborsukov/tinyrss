@@ -36,6 +36,7 @@ fn main() -> eframe::Result<()> {
     )
 }
 
+#[cfg(not(unix))]
 fn load_icon() -> eframe::IconData {
     let image_bytes = include_bytes!("../icons/icon.png");
     let image = image::load_from_memory(image_bytes).unwrap();

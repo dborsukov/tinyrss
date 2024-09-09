@@ -42,12 +42,12 @@ impl ConfigBuilder {
                 match serde_yaml::from_reader(reader) {
                     Ok(loaded_config) => {
                         info!("Successfuly loaded application config from file.");
-                        return loaded_config;
+                        loaded_config
                     }
                     Err(err) => {
                         error!("Failed to deserialize config file: {}", err.to_string());
                         info!("Using default config file.");
-                        return Self::default();
+                        Self::default()
                     }
                 }
             }
@@ -57,7 +57,7 @@ impl ConfigBuilder {
                     error!("Failed to read config file: {}", err.to_string());
                 }
                 info!("Using default config file.");
-                return Self::default();
+                Self::default()
             }
         }
     }

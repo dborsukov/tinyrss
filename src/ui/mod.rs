@@ -174,16 +174,15 @@ impl TinyrssApp {
                                         self.feed_page = 0;
                                     };
                                 });
-                            if CONFIG.lock().show_search_in_feed {
-                                if ui
+                            if CONFIG.lock().show_search_in_feed
+                                && ui
                                     .add(
                                         TextEdit::singleline(&mut self.feed_input)
                                             .hint_text("Search"),
                                     )
                                     .changed()
-                                {
-                                    self.feed_page = 0;
-                                };
+                            {
+                                self.feed_page = 0;
                             }
                         }
                     });
@@ -231,57 +230,48 @@ impl TinyrssApp {
             const ITEMS_PER_PAGE: usize = 10;
 
             let from = self.feed_page * ITEMS_PER_PAGE;
-            let to;
-            let last_page: bool;
 
-            let filtered_items: Vec<&Item>;
+            let filtered_items: Vec<&Item> = match self.feed_type_combo {
+                FeedTypeCombo::New => self
+                    .feed_items
+                    .iter()
+                    .filter(|item| !item.dismissed)
+                    .filter(|item| {
+                        item.title
+                            .clone()
+                            .unwrap()
+                            .to_lowercase()
+                            .contains(self.feed_input.to_lowercase().as_str())
+                    })
+                    .collect(),
+                FeedTypeCombo::Dismissed => self
+                    .feed_items
+                    .iter()
+                    .filter(|item| item.dismissed)
+                    .filter(|item| {
+                        item.title
+                            .clone()
+                            .unwrap()
+                            .to_lowercase()
+                            .contains(self.feed_input.to_lowercase().as_str())
+                    })
+                    .collect(),
+            };
 
-            match self.feed_type_combo {
-                FeedTypeCombo::New => {
-                    filtered_items = self
-                        .feed_items
-                        .iter()
-                        .filter(|item| !item.dismissed)
-                        .filter(|item| {
-                            item.title
-                                .clone()
-                                .unwrap()
-                                .to_lowercase()
-                                .contains(self.feed_input.to_lowercase().as_str())
-                        })
-                        .collect();
-                }
-                FeedTypeCombo::Dismissed => {
-                    filtered_items = self
-                        .feed_items
-                        .iter()
-                        .filter(|item| item.dismissed)
-                        .filter(|item| {
-                            item.title
-                                .clone()
-                                .unwrap()
-                                .to_lowercase()
-                                .contains(self.feed_input.to_lowercase().as_str())
-                        })
-                        .collect();
-                }
-            }
-
-            last_page =
+            let last_page: bool =
                 (filtered_items.len() - (self.feed_page * ITEMS_PER_PAGE)) <= ITEMS_PER_PAGE;
 
-            if from + ITEMS_PER_PAGE > filtered_items.len() {
-                to = filtered_items.len();
+            let to = if from + ITEMS_PER_PAGE > filtered_items.len() {
+                filtered_items.len()
             } else {
-                to = from + ITEMS_PER_PAGE;
-            }
+                from + ITEMS_PER_PAGE
+            };
 
             if filtered_items.is_empty() {
-                let text;
-                match self.feed_type_combo {
-                    FeedTypeCombo::New => text = "No new items",
-                    FeedTypeCombo::Dismissed => text = "No dismissed items",
-                }
+                let text = match self.feed_type_combo {
+                    FeedTypeCombo::New => "No new items",
+                    FeedTypeCombo::Dismissed => "No dismissed items",
+                };
                 ui.with_layout(
                     Layout::centered_and_justified(Direction::LeftToRight),
                     |ui| {
@@ -405,7 +395,7 @@ impl TinyrssApp {
                         .to_lowercase()
                         .contains(self.channel_input.to_lowercase().as_str());
                 }
-                return false;
+                false
             });
 
             if !search_result_exists && !self.channels.is_empty() {
@@ -535,8 +525,8 @@ impl TinyrssApp {
                     });
 
                     let edit_title_id = ui.id().with("edit_title");
-                    let mut edit_title = ui
-                        .data_mut(|d| d.get_temp::<String>(edit_title_id).unwrap_or(String::new()));
+                    let mut edit_title =
+                        ui.data_mut(|d| d.get_temp::<String>(edit_title_id).unwrap_or_default());
 
                     modal.show(|ui| {
                         modal.title(ui, "Manage channels");
@@ -624,7 +614,7 @@ impl TinyrssApp {
     }
 
     fn render_footer(&mut self, ctx: &Context) {
-        if self.worker_status.worker_errors.len() > 0 {
+        if self.worker_status.worker_errors.is_empty() {
             TopBottomPanel::bottom("footer")
                 .frame(Frame {
                     fill: THEME.colors.bg_darker,

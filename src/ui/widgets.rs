@@ -132,10 +132,10 @@ pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Ite
             if ui
                 .add(Hyperlink::from_label_and_url(job, &item.link))
                 .clicked()
+                && CONFIG.lock().auto_dismiss_on_open
+                && !item.dismissed
             {
-                if CONFIG.lock().auto_dismiss_on_open && !item.dismissed {
-                    dismisss(item, &sender);
-                }
+                dismisss(item, &sender);
             };
         } else {
             ui.add(Label::new(RichText::new("<no title>")));
@@ -158,10 +158,8 @@ pub fn feed_card(ui: &mut egui::Ui, sender: Option<Sender<ToWorker>>, item: &Ite
                                 .unwrap();
                         }
                     }
-                } else {
-                    if ui.link("Dismiss").clicked() {
-                        dismisss(item, &sender);
-                    }
+                } else if ui.link("Dismiss").clicked() {
+                    dismisss(item, &sender);
                 }
             });
         });

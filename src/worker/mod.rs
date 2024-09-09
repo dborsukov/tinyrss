@@ -17,9 +17,6 @@ mod utils;
 
 static CHANNEL_CLOSED: Once = Once::new();
 
-#[derive(Debug)]
-struct FeedParsingError;
-
 pub struct Worker {
     sender: Sender<ToApp>,
     receiver: Receiver<ToWorker>,
@@ -405,7 +402,7 @@ impl Worker {
                     ..Default::default()
                 };
 
-                if entry.links.len() > 0 {
+                if entry.links.is_empty() {
                     item.link = entry.links[0].href.clone();
                 } else {
                     item.link = "<no link>".to_string();
@@ -506,6 +503,7 @@ impl Worker {
     }
 
     #[async_recursion::async_recursion]
+    #[allow(clippy::only_used_in_recursion)]
     async fn traverse_outlines(&mut self, root_outline: opml::Outline) -> Vec<String> {
         let mut links: Vec<String> = vec![];
         for outline in root_outline.outlines {
@@ -524,7 +522,7 @@ impl Worker {
             .await;
         if let Some(file_handle) = file_handle {
             let xml = r#"<opml version="2.0"><head/><body><outline text="Outline"/></body></opml>"#;
-            let mut opml = match opml::OPML::from_str(&xml) {
+            let mut opml = match opml::OPML::from_str(xml) {
                 Ok(opml) => opml,
                 Err(err) => {
                     self.report_error("Failed to parse xml", err.to_string());
