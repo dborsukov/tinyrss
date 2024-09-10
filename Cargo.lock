@@ -964,11 +964,11 @@ dependencies = [
 
 [[package]]
 name = "egui-modal"
-version = "0.2.2"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f15e5ba88bf7df3aafac7c97f3095d92beb4de9ecf9bc4e2387cfddea6114bde"
+checksum = "930210dbd95b65bdd9251e0ab2e9db7572d58675f018c611d7e500b7ff5226b2"
 dependencies = [
- "egui 0.21.0",
+ "egui 0.23.0",
 ]
 
 [[package]]
