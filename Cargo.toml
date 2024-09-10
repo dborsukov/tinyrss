@@ -13,7 +13,7 @@ exclude = ["/wix"]
 
 [dependencies]
 async-recursion = "1.0.4"
-bytes = "1.4.0"
+bytes = "1.7.1"
 chrono = "0.4.24"
 copypasta = "0.8.2"
 crossbeam-channel = "0.5.7"
